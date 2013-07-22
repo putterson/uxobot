@@ -25,16 +25,24 @@ class Game:
         state = s.newBoard()
         display.printBoard(state)
         
+        exits = ("exit", "quit", "q")
+        
+        players = ['X','O']
+        
         while True:
-            move = raw_input("move=>")
-            if move == "exit":
-                sys.exit(0)
-            if not self.handleMove(move, state):
-                print "Please enter a valid move."
-                continue
-            display.printBoard(state)
+            for curplayer in players:
+                if curplayer == 'X':
+                    move = raw_input("move=>")
+                    if move in exits:
+                        sys.exit(0)
+                    if not self.handleMove(move, state, curplayer):
+                        print "Please enter a valid move."
+                        continue
+                elif curplayer == 'O':
+                    self.lastmove = bot.move(state, self.lastmove, curplayer)
+                display.printBoard(state)
     
-    def handleMove(self,move,state):
+    def handleMove(self,move,state,player):
         if len(move) <= 1:
             return False
         pos = move.split(',')
@@ -45,11 +53,11 @@ class Game:
                 board = self.lastmove[1]
                 cell = self.ymoves[pos[0][0]] * 3 + self.xmoves[pos[0][1]]
         else:
-            if not self.validMove(pos[0]) or not self.validMove(pos[1]):
+            if len(pos) != 2 or not self.validMove(pos[0]) or not self.validMove(pos[1]):
                 return False
             board = self.ymoves[pos[0][0]] * 3 + self.xmoves[pos[0][1]]
             cell = self.ymoves[pos[1][0]] * 3 + self.xmoves[pos[1][1]]
-        state[board][cell] = 'X'
+        state[board][cell] = player
         self.lastmove = (board,cell)
         return True
     
@@ -59,6 +67,8 @@ class Game:
                 return True
             else:
                 return False
+        else:
+            return False
 
 class XOHeuristic:
     wins = (
@@ -78,7 +88,11 @@ class XOHeuristic:
         (1000,  0,     0,     0),
         )
     
-    def evalPos( board, player ):
+    def move(self, state, lastmove, player):
+        
+    
+    def genChildren()
+    def evalPos( self, board, player ):
         if player == 'X':
             opponent = 'O'
         else :
@@ -95,10 +109,10 @@ class XOHeuristic:
             t += score[players][others]
         return t
     
-    def evalState( node ):
+    def evalState(self, node ):
         return 1000
     
-    def alphabeta(node, depth, a, b, maximize):
+    def alphabeta(self, node, depth, a, b, maximize):
         if depth == 0 or len(node.children) == 0:
             return evalState(node)
         if maximize:
@@ -113,19 +127,14 @@ class XOHeuristic:
                 if b <= a:
                     break #alpha cutoff
             return b
+    
 
 class GameState:
-    e = [' ',' ',' ',
-        ' ',' ',' ',
-        ' ',' ',' ']
+    e = [ ' ' for i in range (9) ]
     
     def newBoard(self):
         e = self.e
-        return [
-            list(e),list(e),list(e),
-            list(e),list(e),list(e),
-            list(e),list(e),list(e)
-        ]
+        return [ list(e) for i in range(9) ]
     
     def move( state, player, board, pos ):
         state[board][pos] = player
