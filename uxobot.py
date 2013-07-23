@@ -113,11 +113,20 @@ class XOHeuristic:
         self.colour = player
         moves = []
         # call alphabeta with depth, it will return the end state and the list of moves leading to it
-        node = { 'state' : state, 'moves' : moves.append(lastmove)}
+        
+        node = { 'state' : state, 'moves' : moves.append(lastmove), 'scores' : self.genScores(state)}
         moves = self.alphabeta( node, self.depth, self.alpha, self.beta, player)
         
         # make best move by passing the chosen move up
         return
+    
+    # generate scores list for the whole metaboard
+    def genScores(self, state, player):
+        scores = []
+        for b in state:
+            scores.append(self.evalBoard(b, player))
+        return scores
+        
     
     def genChildren(self, node):
         if node['moves']:
@@ -129,6 +138,8 @@ class XOHeuristic:
         moves = []
         if len(lastmove) == 0:
             for i,b in enumerate(state):
+                if node['scores'][i] >= 1000:
+                    continue
                 for j,c in enumerate(state[i]):
                     if c == ' ':
                         moves.append((i,j))
@@ -145,7 +156,8 @@ class XOHeuristic:
         node['moves'].append(lastmove)
         return moves
     
-    # need to fix this to give a correct score, workingish for now
+    # max score is 8000 for a full board, but this should never happen,
+    # if the score >= 1000 then the board is won for player
     def evalBoard(self, board, player):
         t = 0
         opponent = self.notPlayer(player)
