@@ -1,12 +1,15 @@
 #!/bin/python
 # coding=utf-8
 
-# A bot for the ultimate tic-tac-toe game described here
+# A bot for the ultimate tic-tac-toe game described here:
+#   http://mathwithbaddrawings.com/2013/06/16/ultimate-tic-tac-toe/
 # Utilizing alphabeta pruned minimax algorith at the moment
 # Make sure that your terminal supports utf-8 line drawing characters
 # 
 # TODO:
 #   add some way to store information on which boards have been won already
+#   just realized that being sent to a won board means you play anywhere,
+#   might not need to store won board info after all
 #   
 #
 import sys
