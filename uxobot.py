@@ -89,9 +89,12 @@ class XOHeuristic:
         )
     
     def move(self, state, lastmove, player):
-        
+        # 
     
-    def genChildren()
+    def genChildren(self, state, lastmove):
+        
+        return { "state" : state, "children" : children }
+        
     def evalPos( self, board, player ):
         if player == 'X':
             opponent = 'O'
@@ -128,6 +131,9 @@ class XOHeuristic:
                     break #alpha cutoff
             return b
     
+    def minimax(self, node, depth, maximize):
+        if depth == 0 or len(node.children) == 0:
+            return
 
 class GameState:
     e = [ ' ' for i in range (9) ]
