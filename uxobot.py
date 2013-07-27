@@ -106,7 +106,7 @@ class Game:
 
 class XOHeuristic:
     
-    depth = 5
+    depth = 7
     colour = 'X'
     lastmove = ()
     
