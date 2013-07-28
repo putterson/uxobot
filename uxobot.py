@@ -14,6 +14,7 @@
 #
 import sys
 import time
+import random
 
 class Game:
     lastmove = ()
@@ -41,8 +42,11 @@ class Game:
         
         players = ['X','O']
         
+        count = 0
+        
         while True:
             for curplayer in players:
+                count += 1
                 #if curplayer == 'X':
                     #move = raw_input("[move]>")
                     #if move in exits:
@@ -56,9 +60,14 @@ class Game:
                 self.lastmove = self.bot.move(state, self.lastmove, curplayer)
                 display.printBoard(state)
                 #time.sleep(2)
-                if self.gameWon(state, curplayer):
-                    print "Player " + curplayer + " has won!"
-                    print state
+                win = self.gameWon(state, curplayer)
+                if win == 0:
+                    continue
+                elif win == 1:
+                    print "Player " + curplayer + " has won in " + str(count) + " moves!"
+                    exit(0)
+                elif win == 2:
+                    print "Player " + curplayer + " has drawn the game in " + str(count) + " moves!"
                     exit(0)
     
     def handleMove(self,move,state,player):
@@ -101,8 +110,12 @@ class Game:
             return False
 
     def gameWon(self, state, player):
-        if len(self.bot.genChildren({ 'state' : state, 'moves' : [self.lastmove]}, self.bot.notPlayer(player)))==0:
-            return True
+        if abs(self.bot.evalState({ 'state' : state, 'moves' : [self.lastmove]}, self.bot.notPlayer(player))) == 1000000:
+            return 1
+        elif len(self.bot.genChildren({ 'state' : state, 'moves' : [self.lastmove]}, self.bot.notPlayer(player))) == 0:
+            return 2
+        else:
+            return 0
 
 class XOHeuristic:
     
@@ -118,6 +131,7 @@ class XOHeuristic:
         (1,4,7),
         (2,5,8),
         (0,4,8),
+
         (2,4,6)
         )
     score = (
@@ -128,20 +142,21 @@ class XOHeuristic:
         )
     
     
-    alpha = -18000
-    beta  =  18000
+    alpha = -1000000
+    beta  =  1000000
     
     def move(self, state, lastmove, player):
         self.colour = player
         moves = []
         moves.append(lastmove)
         # call alphabeta with depth, it will return the end state and the list of moves leading to it
-        print moves
         node = { 'state' : state, 'moves' : moves}
         result = self.alphabeta( node, self.depth, self.alpha, self.beta, player)
         move = result[1]
+        
         state[move[0]][move[1]] = player
-        print move
+        #print "Move " + str(move) + " has score: " + str(result[0])
+        #exit(0)
         return move
     
     def genChildren(self, node, player):
@@ -171,6 +186,7 @@ class XOHeuristic:
                             if c == ' ':
                                 moves.append((i,j))
         node['moves'].append(lastmove)
+        random.shuffle(moves)
         return moves
     
     # max score is 1000/-1000
@@ -201,18 +217,45 @@ class XOHeuristic:
         return t
     
     # compute score for whole metaboard
-    def evalState(self, node, maximize):
-        #scores = [self.evalBoard(node['state'][i],maximize) for i in range(9)]
-        #print scores
-        return sum([self.evalBoard(node['state'][i],maximize) for i in range(9)])
+    def evalState(self, node, player):
+        t = 0
+        state = node['state']
+        scores = [self.evalBoard(node['state'][i],player) for i in range(9)]
+        for i in range(8):
+            players = 0
+            others = 0
+            for j in range(3):
+                score = scores[self.wins[i][j]]
+                if score == 1000:
+                    players += 1
+                elif score == -1000:
+                    others += 1
+            t += 1000 * self.score[players][others]
+            
+            #if the board is won override and return the max/min value
+            if 1000 * abs(self.score[players][others]) >= 1000000:
+                t = 1000 * self.score[players][others]
+                break
+        t += sum(scores)
+        #cap the max/min value to 1000
+        if t > 1000000:
+            t = 1000000
+        elif t < -1000000:
+            t = -1000000
+        #print player + ": " + str(t)
+        return t
     
     # 
     # 
     def alphabeta(self, node, depth, a, b, maximize):
         children = self.genChildren(node, maximize)
         move = []
+        comp = 0
+        score = 0
         if depth == 0 or len(children) == 0:
-            return (self.evalState(node, maximize), node['moves'][-1])
+            score = self.evalState(node, maximize)
+            #print score
+            return (10, node['moves'][-1])
         if maximize == self.colour:
             for child in children:
                 b = child[0]
@@ -222,7 +265,8 @@ class XOHeuristic:
                 node['state'][b][c] = maximize
                 
                 comp = self.alphabeta(node, depth - 1, a, b, self.notPlayer(maximize))
-                
+                #print comp
+
                 node['state'][b][c] = ' '
                 node['moves'].pop()
                 
@@ -231,15 +275,19 @@ class XOHeuristic:
                     move = child
                 if b <= a:
                     break #beta cutoff
+            #print a
             return (a, move)
         else:
             for child in children:
+                b = child[0]
+                c = child[1]
+                
                 node['moves'].append(child)
-                node['state'][child[0]][child[1]] = maximize
+                node['state'][b][c] = maximize
                 
                 comp = self.alphabeta(node, depth - 1, a, b, self.notPlayer(maximize))
-                
-                node['state'][child[0]][child[1]] = ' '
+                #print comp[0]
+                node['state'][b][c] = ' '
                 node['moves'].pop()
                 
                 if comp[0] <= b:
@@ -247,7 +295,7 @@ class XOHeuristic:
                     move = child
                 if b <= a:
                     break #alpha cutoff
-            return (b, child)
+            return (b, move)
     
     def notPlayer(self,p):
         if p == 'X':
