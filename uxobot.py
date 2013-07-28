@@ -119,7 +119,7 @@ class Game:
 
 class XOHeuristic:
     
-    depth = 7
+    depth = 6
     colour = 'X'
     lastmove = ()
     
@@ -131,7 +131,6 @@ class XOHeuristic:
         (1,4,7),
         (2,5,8),
         (0,4,8),
-
         (2,4,6)
         )
     score = (
@@ -156,7 +155,7 @@ class XOHeuristic:
         
         state[move[0]][move[1]] = player
         #print "Move " + str(move) + " has score: " + str(result[0])
-        #exit(0)
+        exit(0)
         return move
     
     def genChildren(self, node, player):
@@ -242,7 +241,7 @@ class XOHeuristic:
             t = 1000000
         elif t < -1000000:
             t = -1000000
-        #print player + ": " + str(t)
+        #print player + ": " + str(t)#lastmove[1]
         return t
     
     # 
@@ -254,8 +253,8 @@ class XOHeuristic:
         score = 0
         if depth == 0 or len(children) == 0:
             score = self.evalState(node, maximize)
-            #print score
-            return (10, node['moves'][-1])
+            ret = (score, [])
+            return ret
         if maximize == self.colour:
             for child in children:
                 b = child[0]
@@ -265,8 +264,12 @@ class XOHeuristic:
                 node['state'][b][c] = maximize
                 
                 comp = self.alphabeta(node, depth - 1, a, b, self.notPlayer(maximize))
-                #print comp
-
+                
+                if abs(comp[0]) < 10 and comp[0] != 0:
+                    print "Depth: " + str(depth) + " ret: " + str(comp)
+                    print node['moves']
+                    exit(0)
+                
                 node['state'][b][c] = ' '
                 node['moves'].pop()
                 
@@ -286,7 +289,12 @@ class XOHeuristic:
                 node['state'][b][c] = maximize
                 
                 comp = self.alphabeta(node, depth - 1, a, b, self.notPlayer(maximize))
-                #print comp[0]
+                
+                if abs(comp[0]) < 10 and comp[0] != 0:
+                    print "Depth: " + str(depth) + " ret: " + str(comp)
+                    print node['moves']
+                    exit(0)
+                    
                 node['state'][b][c] = ' '
                 node['moves'].pop()
                 
