@@ -47,17 +47,19 @@ class Game:
         while True:
             for curplayer in players:
                 count += 1
-                #if curplayer == 'X':
-                    #move = raw_input("[move]>")
-                    #if move in exits:
-                        #sys.exit(0)
-                    #if not self.handleMove(move, state, curplayer):
-                        #print "Please enter a valid move."
-                        #break
-                #elif curplayer == 'O':
-                    #print "Computer move."
-                    #self.lastmove = self.bot.move(state, self.lastmove, curplayer)
-                self.lastmove = self.bot.move(state, self.lastmove, curplayer)
+                if curplayer == 'O':
+                    while True:
+                        move = raw_input("[move]>")
+                        if move in exits:
+                            sys.exit(0)
+                        if self.handleNMove(move, state, curplayer):
+                            break
+                        else:
+                            print "Please enter a valid move."
+                elif curplayer == 'X':
+                    print "Computer move."
+                    self.lastmove = self.bot.move(state, self.lastmove, curplayer)
+                #self.lastmove = self.bot.move(state, self.lastmove, curplayer)
                 display.printBoard(state)
                 #time.sleep(2)
                 win = self.gameWon(state, curplayer)
@@ -69,6 +71,32 @@ class Game:
                 elif win == 2:
                     print "Player " + curplayer + " has drawn the game in " + str(count) + " moves!"
                     exit(0)
+    
+    def handleNMove(self, move, state, player):
+        lastmove = self.lastmove
+        if len(move) != 2 or not self.validNMove(move[0]) or not self.validNMove(move[1]):
+            return False
+        board = int(move[0]) - 1
+        cell = int(move[1]) - 1
+        children = self.bot.genChildren( { 'state' : state, 'moves' : [lastmove]}, player )
+        print children
+        print lastmove
+        for m in children:
+            if board == m[0] and cell == m[1]:
+                state[board][cell] = player
+                self.lastmove = (board,cell)
+                return True     
+        return False
+    
+    def validNMove(self, num):
+        try:
+            n = int(num)
+        except ValueError:
+                return False
+        if n >= 1 and n <= 9:
+            return True
+        else:
+            return False
     
     def handleMove(self,move,state,player):
         lastmove = self.lastmove
@@ -82,22 +110,26 @@ class Game:
             else:
                 for m in self.bot.genChildren( { 'state' : state, 'moves' : [lastmove]}, player ):
                     board = self.ymoves[pos[0][0]] * 3 + self.xmoves[pos[0][1]]
-                    cell = self.ymoves[pos[1][0]] * 3 + self.xmoves[pos[1][1]]
+                    cell  = self.ymoves[pos[1][0]] * 3 + self.xmoves[pos[1][1]]
                     if board == m[0] and cell == m[1]:
                         state[board][cell] = player
                         self.lastmove = (board,cell)
                         return True
+                else:
+                    return False
         else:
             if len(pos) != 2 or not self.validMove(pos[0]) or not self.validMove(pos[1]):
                 return False
             else:
                 for m in self.bot.genChildren( { 'state' : state, 'moves' : [] }, player ):
                     board = self.ymoves[pos[0][0]] * 3 + self.xmoves[pos[0][1]]
-                    cell = self.ymoves[pos[1][0]] * 3 + self.xmoves[pos[1][1]]
+                    cell  = self.ymoves[pos[1][0]] * 3 + self.xmoves[pos[1][1]]
                     if board == m[0] and cell == m[1]:
                         state[board][cell] = player
                         self.lastmove = (board,cell)
                         return True
+                else:
+                    return False
         return False
     
     def validMove(self,pos):
@@ -119,7 +151,7 @@ class Game:
 
 class XOHeuristic:
     
-    depth = 6
+    depth = 1
     colour = 'X'
     lastmove = ()
     
@@ -145,6 +177,10 @@ class XOHeuristic:
     beta  =  1000000
     
     def move(self, state, lastmove, player):
+        if player == 'X':
+            self.depth = 7
+        else:
+            self.depth = 7
         self.colour = player
         moves = []
         moves.append(lastmove)
@@ -152,10 +188,9 @@ class XOHeuristic:
         node = { 'state' : state, 'moves' : moves}
         result = self.alphabeta( node, self.depth, self.alpha, self.beta, player)
         move = result[1]
+        print "Score for " + str(move) + " : " +  str(result[0])
         
         state[move[0]][move[1]] = player
-        #print "Move " + str(move) + " has score: " + str(result[0])
-        exit(0)
         return move
     
     def genChildren(self, node, player):
@@ -202,17 +237,10 @@ class XOHeuristic:
                     players += 1
                 elif piece == opponent:
                     others += 1
-            t += self.score[players][others]
-            
             #if the board is won override and return the max/min value
-            if abs(self.score[players][others]) >= 1000:
-                t = self.score[players][others]
-                break
-        #cap the max/min value to 1000
-        if t > 1000:
-            t = 1000
-        elif t < -1000:
-            t = -1000            
+            if abs(self.score[players][others]) == 1000:
+                return self.score[players][others]
+            t += self.score[players][others]
         return t
     
     # compute score for whole metaboard
@@ -249,28 +277,27 @@ class XOHeuristic:
     def alphabeta(self, node, depth, a, b, maximize):
         children = self.genChildren(node, maximize)
         move = []
-        comp = 0
-        score = 0
         if depth == 0 or len(children) == 0:
             score = self.evalState(node, maximize)
-            ret = (score, [])
+            ret = [score, []]
             return ret
         if maximize == self.colour:
             for child in children:
-                b = child[0]
-                c = child[1]
+                board = child[0]
+                cell = child[1]
                 
                 node['moves'].append(child)
-                node['state'][b][c] = maximize
+                node['state'][board][cell] = maximize
                 
                 comp = self.alphabeta(node, depth - 1, a, b, self.notPlayer(maximize))
                 
-                if abs(comp[0]) < 10 and comp[0] != 0:
-                    print "Depth: " + str(depth) + " ret: " + str(comp)
-                    print node['moves']
-                    exit(0)
+                #print "Children " + str(children)
+                #print "Depth: " + str(depth) + " ret: " + str(comp)
+                #print node['moves']
+                #if abs(comp[0]) < 10 and comp[0] != 0:
+                    #exit(0)
                 
-                node['state'][b][c] = ' '
+                node['state'][board][cell] = ' '
                 node['moves'].pop()
                 
                 if comp[0] >= a:
@@ -279,23 +306,24 @@ class XOHeuristic:
                 if b <= a:
                     break #beta cutoff
             #print a
-            return (a, move)
+            return [a, move]
         else:
             for child in children:
-                b = child[0]
-                c = child[1]
+                board = child[0]
+                cell = child[1]
                 
                 node['moves'].append(child)
-                node['state'][b][c] = maximize
+                node['state'][board][cell] = maximize
                 
                 comp = self.alphabeta(node, depth - 1, a, b, self.notPlayer(maximize))
                 
-                if abs(comp[0]) < 10 and comp[0] != 0:
-                    print "Depth: " + str(depth) + " ret: " + str(comp)
-                    print node['moves']
-                    exit(0)
+                #print "Children " + str(children)
+                #print "Depth: " + str(depth) + " ret: " + str(comp)
+                #print node['moves']
+                #if abs(comp[0]) < 10 and comp[0] != 0:
+                    #exit(0)
                     
-                node['state'][b][c] = ' '
+                node['state'][board][cell] = ' '
                 node['moves'].pop()
                 
                 if comp[0] <= b:
@@ -303,7 +331,7 @@ class XOHeuristic:
                     move = child
                 if b <= a:
                     break #alpha cutoff
-            return (b, move)
+            return [b, move]
     
     def notPlayer(self,p):
         if p == 'X':
