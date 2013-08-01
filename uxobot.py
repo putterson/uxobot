@@ -47,19 +47,19 @@ class Game:
         while True:
             for curplayer in players:
                 count += 1
-                if curplayer == 'O':
-                    while True:
-                        move = raw_input("[move]>")
-                        if move in exits:
-                            sys.exit(0)
-                        if self.handleNMove(move, state, curplayer):
-                            break
-                        else:
-                            print "Please enter a valid move."
-                elif curplayer == 'X':
-                    print "Computer move."
-                    self.lastmove = self.bot.move(state, self.lastmove, curplayer)
-                #self.lastmove = self.bot.move(state, self.lastmove, curplayer)
+#                if curplayer == 'O':
+#                    while True:
+#                        move = raw_input("[move]>")
+#                        if move in exits:
+#                            sys.exit(0)
+#                        if self.handleNMove(move, state, curplayer):
+#                            break
+#                        else:
+#                            print "Please enter a valid move."
+#                elif curplayer == 'X':
+#                    print "Computer move."
+#                    self.lastmove = self.bot.move(state, self.lastmove, curplayer)
+                self.lastmove = self.bot.move(state, self.lastmove, curplayer)
                 display.printBoard(state)
                 #time.sleep(2)
                 win = self.gameWon(state, curplayer)
@@ -149,6 +149,46 @@ class Game:
         else:
             return 0
 
+SCORE_EXACT = 0
+SCORE_UPPER_BOUND = 1
+SCORE_LOWER_BOUND = 2
+
+# Transpose a state to one of 4 orientations (one of them being the same)
+#def transpose(state, flipx, flipy):
+
+    
+
+
+# Generate 3 9x9 boxes of zobrist keys intended for the different cases:
+# - Square is empty
+# - Square has X
+# - Square has O
+def gen_zobrist_keys():
+    grids = []
+    for i in range(3):
+        grid = [[random.getrandbits(64) for b in range(9)] for c in range(9)]
+        grids.append(grid)
+    return grids
+
+zobrist_keys = gen_zobrist_keys()
+
+def hash_square(state, b, c):
+    contents = state[b][c]
+    if contents == 'X':
+        hash = zobrist_keys[0][b][c]
+    elif contents == 'O':
+        hash = zobrist_keys[1][b][c]
+    else:
+        hash = zobrist_keys[2][b][c]
+    return hash
+
+def hash_board(state):
+    hash = 0
+    for b in range(9):
+        for c in range(9):
+            hash ^= hash_square(state, b, c)
+    return hash
+
 class XOHeuristic:
     
     depth = 1
@@ -175,22 +215,27 @@ class XOHeuristic:
     
     alpha = -1000000
     beta  =  1000000
-    
+
     def move(self, state, lastmove, player):
+        start_clock = time.clock()
+
         if player == 'X':
-            self.depth = 7
+            self.depth = 6
         else:
-            self.depth = 7
+            self.depth = 6
         self.colour = player
+
         moves = []
         moves.append(lastmove)
         # call alphabeta with depth, it will return the end state and the list of moves leading to it
-        node = { 'state' : state, 'moves' : moves}
-        result = self.alphabeta( node, self.depth, self.alpha, self.beta, player)
+        node = { 'state' : state, 'moves' : moves, 'cache' : {}, 'hash' : hash_board(state) }
+        result = self.negamax(node, self.depth, self.alpha, self.beta, player)
+        print "Cache size: ", len(node['cache'])
         move = result[1]
         print "Score for " + str(move) + " : " +  str(result[0])
         
         state[move[0]][move[1]] = player
+        print 'move took', start_clock - time.clock()
         return move
     
     def genChildren(self, node, player):
@@ -271,12 +316,80 @@ class XOHeuristic:
             t = -1000000
         #print player + ": " + str(t)#lastmove[1]
         return t
-    
+
+    def update_cache(self, node, entry):
+        cache = node["cache"]
+        h = node["hash"]
+        if h in cache:
+            old = cache[h]
+            if old[2] > entry[2]:
+                return # Value was already better
+            if old[2] == entry[2]:
+                if old[3] > entry[3]:
+                    return # Value has better bound type
+        cache[h] = entry
+
+    def negamax(self, node, depth, a, b, maximize):
+        cache = node["cache"]
+        h = node["hash"]
+        if h in cache:
+            entry = cache[h]
+            if entry[2] >= depth:
+                if entry[3] == SCORE_EXACT:
+                    return entry
+                b = min(entry[1], b)
+                if a >= b:
+                    a = b
+        children = self.genChildren(node, maximize)
+        move = []
+
+        if depth == 0 or len(children) == 0:
+            score = self.evalState(node, maximize)
+            ret = [score, []]
+            return ret
+        for child in children:
+            if move == []: move = child
+            board = child[0]
+            cell = child[1]
+            
+            node['moves'].append(child)
+            node['state'][board][cell] = maximize
+            hsquare = hash_square(node['state'],board,cell)
+            node['hash'] ^= hsquare
+            
+            comp = self.negamax(node, depth - 1, -b, -a, self.notPlayer(maximize))
+            
+
+           # print "Children " + str(children)
+           # print "Depth: " + str(depth) + " ret: " + str(comp)
+           # print node['moves']
+           # if abs(comp[0]) < 10 and comp[0] != 0:
+           #    exit(0)
+           
+           
+            node['hash'] ^= hsquare 
+            node['state'][board][cell] = ' '
+            node['moves'].pop()
+            
+            if comp[0] >= b:
+                movepair = [comp[0], child, depth, SCORE_UPPER_BOUND]
+                self.update_cache(node, movepair)
+                return movepair
+            if comp[0] > a:
+                a = comp[0]
+                move = child
+
+        #print a
+        movepair = [a, move, depth, SCORE_EXACT]
+        self.update_cache(node, movepair)
+        return movepair
+        
     # 
     # 
     def alphabeta(self, node, depth, a, b, maximize):
         children = self.genChildren(node, maximize)
         move = []
+
         if depth == 0 or len(children) == 0:
             score = self.evalState(node, maximize)
             ret = [score, []]
