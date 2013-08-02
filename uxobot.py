@@ -3,13 +3,9 @@
 
 # A bot for the ultimate tic-tac-toe game described here:
 #   http://mathwithbaddrawings.com/2013/06/16/ultimate-tic-tac-toe/
-# Utilizing alphabeta pruned minimax algorith at the moment
+# Utilizing alphabeta pruned negamax algorithm with transposition tables
 # Make sure that your terminal supports utf-8 line drawing characters
 # 
-# TODO:
-#   add some way to store information on which boards have been won already
-#   just realized that being sent to a won board means you play anywhere,
-#   might not need to store won board info after all
 #   
 #
 import sys
@@ -31,7 +27,8 @@ class Game:
         }
     
     def run(self, mode):
-        self.bot = XOHeuristic()
+        self.botX = XOHeuristic()
+        self.botO = XOHeuristic()
         s = GameState()
         display = Display()
         
@@ -47,19 +44,25 @@ class Game:
         while True:
             for curplayer in players:
                 count += 1
-#                if curplayer == 'O':
-#                    while True:
-#                        move = raw_input("[move]>")
-#                        if move in exits:
-#                            sys.exit(0)
-#                        if self.handleNMove(move, state, curplayer):
-#                            break
-#                        else:
-#                            print "Please enter a valid move."
-#                elif curplayer == 'X':
-#                    print "Computer move."
-#                    self.lastmove = self.bot.move(state, self.lastmove, curplayer)
-                self.lastmove = self.bot.move(state, self.lastmove, curplayer)
+                if curplayer == 'O':
+                    while True:
+                        move = raw_input("[move]>")
+                        if move in exits:
+                            sys.exit(0)
+                        if self.handleNMove(move, state, curplayer):
+                            break
+                        else:
+                            print "Please enter a valid move."
+                elif curplayer == 'X':
+                    print "Computer move."
+                    self.lastmove = self.botX.move(state, self.lastmove, curplayer)
+                    
+                #if curplayer == 'X':
+                    #self.lastmove = self.botX.move(state, self.lastmove, curplayer)
+                #else:
+                    #self.lastmove = self.botO.move(state, self.lastmove, curplayer)
+                
+                
                 display.printBoard(state)
                 #time.sleep(2)
                 win = self.gameWon(state, curplayer)
@@ -78,8 +81,8 @@ class Game:
             return False
         board = int(move[0]) - 1
         cell = int(move[1]) - 1
-        children = self.bot.genChildren( { 'state' : state, 'moves' : [lastmove]}, player )
-        print children
+        children = self.botX.genChildren( { 'state' : state, 'moves' : [lastmove]}, player )
+        #print children
         print lastmove
         for m in children:
             if board == m[0] and cell == m[1]:
@@ -142,9 +145,9 @@ class Game:
             return False
 
     def gameWon(self, state, player):
-        if abs(self.bot.evalState({ 'state' : state, 'moves' : [self.lastmove]}, self.bot.notPlayer(player))) == 1000000:
+        if abs(self.botX.evalState({ 'state' : state, 'moves' : [self.lastmove]}, self.botX.notPlayer(player))) == 1000000:
             return 1
-        elif len(self.bot.genChildren({ 'state' : state, 'moves' : [self.lastmove]}, self.bot.notPlayer(player))) == 0:
+        elif len(self.botX.genChildren({ 'state' : state, 'moves' : [self.lastmove]}, self.botX.notPlayer(player))) == 0:
             return 2
         else:
             return 0
@@ -153,11 +156,45 @@ SCORE_EXACT = 0
 SCORE_UPPER_BOUND = 1
 SCORE_LOWER_BOUND = 2
 
-# Transpose a state to one of 4 orientations (one of them being the same)
-#def transpose(state, flipx, flipy):
 
+def state_to_xy(state):
+    return [
+        [state[b][c] for b in range(x,9,3) for c in range(y,9,3)]
+        for x in range(3) for y in range(3)
+        ]
     
+def xy_to_state(xy):
+    return [
+        [xy[x][y] for y in range(b,b+3) for x in range(r,r+3)]
+        for b in range(0,9,3) for r in range(0,9,3)
+        ]
 
+def rot_state(orient):
+    def rot(state):
+        if orient == 0:
+            return state
+        elif orient == 1:
+            return xy_to_state(zip(*state_to_xy(state)[::-1]))
+        elif orient == 2:
+            return xy_to_state(map(list,map(reversed,state_to_xy(state)))[::-1])
+        elif orient == 3:
+            return xy_to_state(zip(*state_to_xy(state))[::-1])
+    return rot
+
+def rot_move(move, orient):
+    newmv = []
+    for i in range(2):
+        for d in range(3):
+            if move[i] in rot_dict[d]:
+                newmv.append(rot_dict[d][(rot_dict[d].index(move[i]) + orient) % 4])
+    return newmv
+
+def move_to_xy(b, c):
+    bxy = divmod(b,3)
+    cxy = divmod(c,3)
+    x = cxy[0]*3 + bxy[1]
+    y = bxy[0]*3 + cxy[1]
+    return (x,y)
 
 # Generate 3 9x9 boxes of zobrist keys intended for the different cases:
 # - Square is empty
@@ -170,24 +207,51 @@ def gen_zobrist_keys():
         grids.append(grid)
     return grids
 
-zobrist_keys = gen_zobrist_keys()
+zobrist_keys = [map(rot_state(i), gen_zobrist_keys()) for i in range(4)]
 
-def hash_square(state, b, c):
+# rotation lists, each next number is a rotation counter clockwise
+rot_dict = [
+    [0,6,8,2],
+    [1,3,7,5],
+    [4,4,4,4]
+    ]
+
+#def orient_of_hash(h):
+    #for i in range(4):
+        #if h in hash_tables[i]:
+            #return i
+
+def canon_hash(h):
+    for i in range(4):
+        if i == 0:
+            minh = h[i]
+        else:
+            minh = min(minh,hash)
+    return minh
+    
+
+def hash_square(state, b, c, orient):
     contents = state[b][c]
+    ob, oc = rot_move((b,c), orient)
     if contents == 'X':
-        hash = zobrist_keys[0][b][c]
+        hash = zobrist_keys[orient][0][ob][oc]
     elif contents == 'O':
-        hash = zobrist_keys[1][b][c]
+        hash = zobrist_keys[orient][1][ob][oc]
     else:
-        hash = zobrist_keys[2][b][c]
+        hash = zobrist_keys[orient][2][ob][oc]
     return hash
 
 def hash_board(state):
-    hash = 0
-    for b in range(9):
-        for c in range(9):
-            hash ^= hash_square(state, b, c)
-    return hash
+    hashes = []
+    for ori in range(4):
+        hash = 0
+        for b in range(9):
+            for c in range(9):
+                hash ^= hash_square(state, b, c, ori)
+        hashes.append(hash)
+    return hashes
+
+nodecount = 0
 
 class XOHeuristic:
     
@@ -216,20 +280,28 @@ class XOHeuristic:
     alpha = -1000000
     beta  =  1000000
 
+    cache = {}
+    
     def move(self, state, lastmove, player):
+        global nodecount
+        nodecount = 0
+        self.colour = player
         start_clock = time.clock()
 
         if player == 'X':
-            self.depth = 6
+            self.depth = 8
         else:
-            self.depth = 6
+            self.depth = 8
         self.colour = player
 
         moves = []
         moves.append(lastmove)
         # call alphabeta with depth, it will return the end state and the list of moves leading to it
-        node = { 'state' : state, 'moves' : moves, 'cache' : {}, 'hash' : hash_board(state) }
+        node = { 'state' : state, 'moves' : moves, 'cache' : self.cache, 'hash' : hash_board(state) }
+
         result = self.negamax(node, self.depth, self.alpha, self.beta, player)
+        
+        print "Nodes visited: ", nodecount
         print "Cache size: ", len(node['cache'])
         move = result[1]
         print "Score for " + str(move) + " : " +  str(result[0])
@@ -319,7 +391,7 @@ class XOHeuristic:
 
     def update_cache(self, node, entry):
         cache = node["cache"]
-        h = node["hash"]
+        h = canon_hash(node["hash"])
         if h in cache:
             old = cache[h]
             if old[2] > entry[2]:
@@ -330,8 +402,9 @@ class XOHeuristic:
         cache[h] = entry
 
     def negamax(self, node, depth, a, b, maximize):
+        #print depth
         cache = node["cache"]
-        h = node["hash"]
+        h = canon_hash(node["hash"])
         if h in cache:
             entry = cache[h]
             if entry[2] >= depth:
@@ -354,12 +427,15 @@ class XOHeuristic:
             
             node['moves'].append(child)
             node['state'][board][cell] = maximize
-            hsquare = hash_square(node['state'],board,cell)
-            node['hash'] ^= hsquare
             
+            for i in range(4):
+                hsquare = hash_square(node['state'],board,cell,i)
+                node['hash'][i] ^= hsquare
+            
+            global nodecount
+            nodecount += 1
             comp = self.negamax(node, depth - 1, -b, -a, self.notPlayer(maximize))
             
-
            # print "Children " + str(children)
            # print "Depth: " + str(depth) + " ret: " + str(comp)
            # print node['moves']
@@ -367,17 +443,20 @@ class XOHeuristic:
            #    exit(0)
            
            
-            node['hash'] ^= hsquare 
+            for i in range(4):
+                hsquare = hash_square(node['state'],board,cell,i)
+                node['hash'][i] ^= hsquare
             node['state'][board][cell] = ' '
             node['moves'].pop()
             
+            move = child #rot_move(child, ori)
+            
             if comp[0] >= b:
-                movepair = [comp[0], child, depth, SCORE_UPPER_BOUND]
+                movepair = [comp[0], move, depth, SCORE_UPPER_BOUND]
                 self.update_cache(node, movepair)
                 return movepair
             if comp[0] > a:
                 a = comp[0]
-                move = child
 
         #print a
         movepair = [a, move, depth, SCORE_EXACT]
@@ -387,6 +466,7 @@ class XOHeuristic:
     # 
     # 
     def alphabeta(self, node, depth, a, b, maximize):
+        global nodecount
         children = self.genChildren(node, maximize)
         move = []
 
@@ -402,6 +482,7 @@ class XOHeuristic:
                 node['moves'].append(child)
                 node['state'][board][cell] = maximize
                 
+                nodecount += 1
                 comp = self.alphabeta(node, depth - 1, a, b, self.notPlayer(maximize))
                 
                 #print "Children " + str(children)
@@ -428,6 +509,7 @@ class XOHeuristic:
                 node['moves'].append(child)
                 node['state'][board][cell] = maximize
                 
+                nodecount += 1
                 comp = self.alphabeta(node, depth - 1, a, b, self.notPlayer(maximize))
                 
                 #print "Children " + str(children)
