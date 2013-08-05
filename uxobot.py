@@ -226,7 +226,7 @@ def canon_hash(h):
         if i == 0:
             minh = h[i]
         else:
-            minh = min(minh,hash)
+            minh = min(minh,h[i])
     return minh
     
 
