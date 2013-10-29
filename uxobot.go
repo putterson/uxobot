@@ -2,18 +2,23 @@ package main
 
 import (
 	"fmt"
+	"bufio"
+	"os"
+	"strings"
 )
+
+var Stdin = bufio.NewReader(os.Stdin)
 
 // Constants for the piece values (blank, X, O)
 const (
-	B = 0
-	X = 1
-	O = 2
+	B byte = 0
+	X byte = 1
+	O byte = 2
 )
 
 var maptochar = []rune{' ', 'X', 'O'}
 var playerconf = []string{"human", "human"}
-var wins = [][]uint8{
+var wins = [][]byte{
 	{1, 1, 1, 0, 0, 0, 0, 0, 0},
 	{0, 0, 0, 1, 1, 1, 0, 0, 0},
 	{0, 0, 0, 0, 0, 0, 1, 1, 1},
@@ -24,27 +29,54 @@ var wins = [][]uint8{
 	{0, 0, 1, 0, 0, 1, 0, 0, 1},
 }
 
-type Board [81]uint8
-
-type Won [9]uint8
-
-type Node struct {
-	board Board
-	won   Won
-}
-
-type Move struct {
-	x int
-	y int
-}
-
-func NewMove() *Move {
-	return &Move{
-		x: -1,
-		y: -1,
+func notPlayer(p byte) byte {
+	if p == X {
+		return O
+	} else {
+		return X
 	}
 }
 
+// The board is stored as a flat array, interpreted as a 9*9 array using modular arithmancy
+type Board [81]byte
+type Won [9]byte
+
+// a Move is the x,y coordinates of the move, 0 based and starting at the top left of the board
+type Move struct {
+	x byte
+	y byte
+}
+
+//AI types and structs
+type BHash uint64
+type CacheEntry struct {
+	cutoff	int
+	depth	int
+	score	int
+	move	Move
+}
+type AINode struct {
+	board	Board
+	moves	[]Move
+	cache	map[BHash]CacheEntry
+	won	Won
+	hash	BHash
+}
+
+
+const NoMove byte = 10
+func NewMove() *Move {
+	return &Move{
+		x: NoMove,
+		y: NoMove,
+	}
+}
+
+/*
+*
+* Main loops are here
+*
+*/
 func main() {
 	run()
 }
@@ -55,11 +87,12 @@ func run() {
 		b[i] = B
 	}
 	var curplayer = X
-	var lastmove Move
+	lastmove := *NewMove()
 	var move Move
 	for {
 		move = makeMove(b, curplayer, lastmove)
 		drawBoard(b, move)
+		lastmove = move
 		curplayer = notPlayer(curplayer)
 	}
 }
@@ -70,52 +103,79 @@ func run() {
 *
 */
 
-func move_to_pos(move Move) int {
+func move_to_pos(move Move) byte {
 	return move.y*9 + move.x
 }
 
-func xy_to_pos(x, y int) int {
+func xy_to_pos(x, y byte) byte {
 	//fmt.Printf("%d", x*9+y)
 	return x*9 + y
 }
 
-func pos_to_move(pos int) Move {
+func pos_to_move(pos byte) Move {
 	return Move{
-		x: pos / 9,
-		y: pos % 9,
+		x: pos % 9,
+		y: pos / 9,
+	}
+}
+
+func move_to_board(m Move) Move {
+	return Move{
+		x: (m.x%3)*3,
+		y: (m.y%3)*3,
 	}
 }
 
 // Takes human move notation ie. board#,cell# and returns a Move
-func move_notation(b, c int) Move {
+func move_notation(b, c byte) Move {
 	b = b-1
 	c = c-1
-
-	return Move{}
+	return Move{
+		x: (b%3)*3 + (c%3),
+		y: (b/3)*3 + (c/3),
+	}
 }
 
-func makeMove(b *Board, curplayer int, move Move) (newmove Move) {
+/*
+*
+* Move making and validation functions
+*
+*/
+func makeMove(b *Board, curplayer byte, lastmove Move) (move Move) {
 	if playerconf[curplayer-1] == "human" {
-		newmove = getMove(b, move)
+		move = getMove(b, lastmove)
 	}
+	(*b)[move_to_pos(move)] = curplayer
 	return
 }
 
-func getMove(b *Board, lastmove Move) (move Move) {
+func getMove(board *Board, lastmove Move) (move Move) {
 	move = *(new(Move))
+	var b, c byte
 	for {
-		fmt.Printf("[move]>")
-		var _, succ = fmt.Scanf("%d%d", &move.x, &move.y)
-		if succ == nil {
-			if move.x > 0 && move.x < 10 && move.y > 0 && move.y < 10 {
-				for _, vm := range genHumanChildren(b, move) {
+		fmt.Printf("[uxobot]>")
+		var input, _ = Stdin.ReadString('\n')
+		var _, err = fmt.Sscanln(input, &b, &c)
+		if err == nil {
+			if b > 0 && b < 10 && c > 0 && c < 10 {
+				move = move_notation(b, c)
+				//fmt.Printf("x:%d y:%d\n",move.x,move.y)
+				for _, vm := range genHumanChildren(board, lastmove) {
 					if move == vm {
 						return
 					}
 				}
 			}
+			// if there were no matching moves
+			fmt.Println("Please make a valid move, or type help.")
+		} else if strings.Contains(input, "help"){
+			fmt.Println("There should be some help here...")
+			fmt.Println("Valid moves are of the form \"1 9\" ie. a board number followed by a cell number (1-9)")
+		} else if strings.Contains(input, "quit") || strings.Contains(input, "exit") {
+			os.Exit(0)
+		} else {
+			fmt.Println("Enter a valid command or type help.")
 		}
-		fmt.Printf("Please make a valid move of the form \"0 9\"\n")
 	}
 }
 
@@ -125,7 +185,7 @@ func genHumanChildren(b *Board, lastmove Move) []Move {
 
 func genChildren(b *Board, lastmove Move, mboard *Won) []Move {
 	var moves []Move
-	if (lastmove.x == -1) && (lastmove.y == -1) {
+	if (lastmove.x == NoMove) && (lastmove.y == NoMove) {
 		return genAllChildren(b, lastmove)
 	}
 
@@ -139,7 +199,8 @@ func genChildren(b *Board, lastmove Move, mboard *Won) []Move {
 // Generate children for all the boards
 func genAllChildren(b *Board, lastmove Move) []Move {
 	moves := []Move{}
-	for pos := 0; pos < 81; pos++ {
+	var pos byte
+	for pos = 0; pos < 81; pos++ {
 		if b[pos] == B {
 			moves = append(moves, pos_to_move(pos))
 		}
@@ -150,11 +211,12 @@ func genAllChildren(b *Board, lastmove Move) []Move {
 // Generate children for a specific board
 func genBoardChildren(b *Board, lastmove Move) []Move {
 	moves := []Move{}
-	ox := (lastmove.x % 3) * 3 * 9
-	oy := (lastmove.y % 3) * 3
-	for x := ox; x <= ox+3; x++ {
-		for y := oy; y <= oy+3; y++ {
-			if b[xy_to_pos(x, y)] == B {
+	ox := (lastmove.x%3) * 3
+	oy := (lastmove.y%3) * 3
+	//fmt.Printf("Origin x:%d y:%d\n", ox, oy)
+	for x := ox; x < ox+3; x++ {
+		for y := oy; y < oy+3; y++ {
+			if b[xy_to_pos(x,y)] == B {
 				move := Move{x: x, y: y}
 				moves = append(moves, move)
 			}
@@ -164,20 +226,27 @@ func genBoardChildren(b *Board, lastmove Move) []Move {
 	return moves
 }
 
-func notPlayer(p int) int {
-	if p == X {
-		return O
-	} else {
-		return X
-	}
-}
-
+/*
+*
+* Board drawing functionality
+*
+*/
 func drawBoard(b *Board, move Move) {
-	for x := 0; x < 9; x++ {
-		for y := 0; y < 9; y++ {
+	for y := 0; y < 9; y++ {
+		for x := 0; x < 9; x++ {
 			fmt.Printf("%c ", maptochar[(*b)[y*9+x]])
 		}
 		fmt.Printf("\n\n")
 	}
+	return
+}
+
+
+/*
+*
+* AI functionality
+*
+*/
+func negamax(node AINode, depth int, alpha int, beta int, player byte){
 	return
 }
