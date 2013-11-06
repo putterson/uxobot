@@ -44,23 +44,23 @@ class Game:
         while True:
             for curplayer in players:
                 count += 1
-                if curplayer == 'O':
-                    while True:
-                        move = raw_input("[move]>")
-                        if move in exits:
-                            sys.exit(0)
-                        if self.handleNMove(move, state, curplayer):
-                            break
-                        else:
-                            print "Please enter a valid move."
-                elif curplayer == 'X':
-                    print "Computer move."
-                    self.lastmove = self.botX.move(state, self.lastmove, curplayer)
-                    
-                #if curplayer == 'X':
+                #if curplayer == 'O':
+                    #while True:
+                        #move = raw_input("[move]>")
+                        #if move in exits:
+                            #sys.exit(0)
+                        #if self.handleNMove(move, state, curplayer):
+                            #break
+                        #else:
+                            #print "Please enter a valid move."
+                #elif curplayer == 'X':
+                    #print "Computer move."
                     #self.lastmove = self.botX.move(state, self.lastmove, curplayer)
-                #else:
-                    #self.lastmove = self.botO.move(state, self.lastmove, curplayer)
+                    
+                if curplayer == 'X':
+                    self.lastmove = self.botX.move(state, self.lastmove, curplayer)
+                else:
+                    self.lastmove = self.botO.move(state, self.lastmove, curplayer)
                 
                 
                 display.printBoard(state)
@@ -289,9 +289,9 @@ class XOHeuristic:
         start_clock = time.clock()
 
         if player == 'X':
-            self.depth = 8
+            self.depth = 3
         else:
-            self.depth = 8
+            self.depth = 7
         self.colour = player
 
         moves = []
