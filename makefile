@@ -1,10 +1,10 @@
 all: build
 
 run: build
-	./uxobot
+	uxobot
 
-build: uxobot.go
-	go build
+build: main.go bot.go moveslice.go
+	go install
 
 clean:
 	rm uxobot
