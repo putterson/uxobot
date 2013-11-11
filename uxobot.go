@@ -5,7 +5,7 @@ import (
 	"bufio"
 	"os"
 	"strings"
-	"errors"
+	//"errors"
 )
 
 var Stdin = bufio.NewReader(os.Stdin)
@@ -15,6 +15,12 @@ const (
 	B byte = 0
 	X byte = 1
 	O byte = 2
+)
+
+// Constants for the max and minimum board scores
+const (
+	SCOREMAX = 10000
+	SCOREMIN = -10000
 )
 
 var maptochar = []rune{' ', 'X', 'O'}
@@ -39,7 +45,7 @@ func notPlayer(p byte) byte {
 }
 
 // The board is stored as a flat array, interpreted as a 9*9 array using modular arithmancy
-type Board [81]byte
+type Board [9][9]byte
 type Won [9]bool
 
 // a Move is the x,y coordinates of the move, 0 based and starting at the top left of the board
@@ -85,8 +91,10 @@ func main() {
 
 func run() {
 	b := new(Board)
-	for i := range b {
-		b[i] = B
+	for x := range b {
+		for y := range b[x] {
+			b[x][y] = B
+		}
 	}
 	var curplayer = X
 	lastmove := *NewMove()
@@ -149,7 +157,7 @@ func makeMove(b *Board, curplayer byte, lastmove Move) (move Move) {
 	} else {
 		move = getCpuMove(b, &lastmove, curplayer)
 	}
-	(*b)[move_to_pos(move)] = curplayer
+	(*b)[move.x][move.y] = curplayer
 	return
 }
 
@@ -183,12 +191,12 @@ func getMove(board *Board, lastmove Move) (move Move) {
 	}
 }
 
-func genHumanChildren(b *Board, lastmove Move) []Move {
+func genHumanChildren(b *Board, lastmove Move) MoveSlice {
 	return genChildren(b, &lastmove, new(Won))
 }
 
-func genChildren(b *Board, lastmove *Move, mboard *Won) []Move {
-	var moves []Move
+func genChildren(b *Board, lastmove *Move, mboard *Won) MoveSlice {
+	var moves MoveSlice
 	if (lastmove.x == NoMove) && (lastmove.y == NoMove) {
 		return genAllChildren(b, lastmove)
 	}
@@ -201,32 +209,33 @@ func genChildren(b *Board, lastmove *Move, mboard *Won) []Move {
 }
 
 // Generate children for all the boards
-func genAllChildren(b *Board, lastmove *Move) []Move {
-	moves := []Move{}
-	var pos byte
-	for pos = 0; pos < 81; pos++ {
-		if b[pos] == B {
-			moves = append(moves, pos_to_move(pos))
+func genAllChildren(b *Board, lastmove *Move) MoveSlice {
+	moves := MoveSlice{}
+	var x,y byte
+	for x = 0; x < 9; x++ {
+		for y = 0; y < 9; y++ {
+			if b[x][y] == B {
+				moves = append(moves, Move{x: x, y: y})
+			}
 		}
 	}
 	return moves
 }
 
 // Generate children for a specific board
-func genBoardChildren(b *Board, lastmove *Move) []Move {
-	moves := []Move{}
+func genBoardChildren(b *Board, lastmove *Move) MoveSlice {
+	moves := MoveSlice{}
 	ox := (lastmove.x%3) * 3
 	oy := (lastmove.y%3) * 3
 	//fmt.Printf("Origin x:%d y:%d\n", ox, oy)
 	for x := ox; x < ox+3; x++ {
 		for y := oy; y < oy+3; y++ {
-			if b[xy_to_pos(x,y)] == B {
+			if b[x][y] == B {
 				move := Move{x: x, y: y}
 				moves = append(moves, move)
 			}
 		}
 	}
-
 	return moves
 }
 
@@ -238,7 +247,7 @@ func genBoardChildren(b *Board, lastmove *Move) []Move {
 func drawBoard(b *Board, move Move) {
 	for y := 0; y < 9; y++ {
 		for x := 0; x < 9; x++ {
-			fmt.Printf("%c ", maptochar[(*b)[y*9+x]])
+			fmt.Printf("%c ", maptochar[(*b)[x][y]])
 		}
 		fmt.Printf("\n\n")
 	}
@@ -252,71 +261,152 @@ func drawBoard(b *Board, move Move) {
 *
 */
 
+func playerToMul(player byte) int {
+	if player == X {
+		return 1
+	} else {
+		return -1
+	}
+}
+
 func getCpuMove(b *Board, lastmove *Move, player byte) Move {
 	//TODO: replace depth with config
-	depth := 6
-	moves := make(MoveSlice, depth + 1)
+	depth := 4
+	moves := make(MoveSlice, 0, depth + 1)
 
 	node := new(AINode)
 	node.board = b
 	node.moves = &moves
 
 	(*node.moves).PushMove(*lastmove)
-
-	entry, err := negamax(node, depth, -10000, 10000, player)
+	//node.moves.Print()
+	_, move, err := negamax(node, depth, -10000, 10000, player, true)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	return entry.move
+	return move
 }
 
 //TODO: evaluate the score of the board
-func evalBoard(board *Board) int {
+func evalBoard(board *Board, won *Won) int {
+	return 0
+}
+
+// evaluate the score of a sub-board
+func evalSubBoard(board *Board, won *Won) int {
 	return 0
 }
 
 // note: we return CacheEntry because it has all the information we need to return to a higher level of negamax
-func negamax(node *AINode, depth int, alpha int, beta int, player byte) (CacheEntry, error) {
-	lastmove, err := node.moves.PopMove()
-	if err != nil {
-		return *new(CacheEntry), err
-	}
-
+func negamax(node *AINode, depth int, alpha int, beta int, player byte, first bool) (CacheEntry, Move, error) {
+	//fmt.Printf("depth: %d\n", depth)
+	//fmt.Printf("Movecount: %d ", len(*node.moves))
+	//node.moves.Print()
+	lastmove := node.moves.LastMove()
+	//drawBoard(node.board, lastmove)
 	children := genChildren(node.board, &lastmove, node.won)
-	
 	if depth == 0 || len(children) == 0 {
+		//fmt.Printf("FIN depth %d children %d\n",depth, len(children))
 		return CacheEntry{
 			//FIXME: CHANGE THIS to be correct
 			cutoff : alpha,
-			depth  : 0,
-			score  : evalBoard(node.board),
+			depth  : depth,
+			score  : playerToMul(player) * evalBoard(node.board, node.won),
 			move   : lastmove,
-		}, nil
+		}, Move{}, nil
 	}
-	return *new(CacheEntry), nil
+
+	maxScore := SCOREMIN
+	var maxEntry CacheEntry
+
+	//defer func(){
+	//	if r := recover(); r != nil {
+	//		fmt.Printf("Depth: %d\n", depth)
+	//	}
+	//}()
+
+	var bestChild Move
+	for _, child := range children {
+		//fmt.Printf("d%d Trying child %d (%d,%d)\n",depth, i, child.x, child.y)
+
+		// PushMove will panic if it fails (shouldn't fail)
+		node.moves.PushMove(child)
+		node.board[child.x][child.y] = player
+
+		// NOTE: alpha and beta are negated and swapped for the subcall to negamax
+		entry, _, err := negamax(node, depth-1, -beta, -alpha, notPlayer(player), false)
+		if err != nil {
+			return *new(CacheEntry), Move{}, err
+		}
+
+		node.board[child.x][child.y] = B
+		node.moves.RemMove()
+
+		if -entry.score > maxScore {
+			maxScore = -entry.score
+			maxEntry = entry
+			if first {
+				bestChild = child
+			}
+		}
+		alpha = max(alpha, entry.score)
+		if alpha >= beta {
+			break
+		}
+	}
+	return maxEntry, bestChild, nil
 }
 
-func (m *MoveSlice) PushMove(move Move) error {
+func (m *MoveSlice) PushMove(move Move) {
 	moves := *m
 	l := len(moves)
 	if l == cap(moves) {
-		return errors.New("PushMove: the MoveSlice has reached it's maximum size")
+		panic(fmt.Sprintln("PushMove: The MoveSlice was full when trying to push a move"))
 	}
-	moves[l+1] = move
+	moves = moves[:l+1]
+	moves[l] = move
 	*m = moves
-	return nil
 }
 
-func (m *MoveSlice) PopMove() (Move, error) {
+func (m *MoveSlice) PopMove() Move {
 	moves := *m
 	l := len(moves)
 	if 0 == l {
-		return *NewMove(), errors.New("PopMove: the MoveSlice is empty")
+		panic(fmt.Sprintln("PopMove: The MoveSlice was empty when trying to pop a move"))
 	}
 	move := moves[l-1]
-	moves = moves[:l-1]
-	return move, nil
+	moves = moves[:l-2]
 	*m = moves
-	return move, nil
+	return move
+}
+
+func (m *MoveSlice) LastMove() Move {
+	moves := *m
+	return moves[len(moves)-1]
+}
+
+func (m *MoveSlice) RemMove() {
+	moves := *m
+	l := len(moves)
+	if 0 == l {
+		panic(fmt.Sprintln("RemMove: The MoveSlice was empty when trying to remove a move"))
+	}
+	moves = moves[:l-1]
+	*m = moves
+}
+
+func (m *MoveSlice) Print() {
+	moves := *m
+	for _, move := range moves {
+		fmt.Printf("(%d,%d) ", move.x, move.y)
+	}
+	fmt.Printf("\n")
+}
+
+func max(a int, b int) int{
+	if a > b{
+		return a
+	}
+	return b
 }
