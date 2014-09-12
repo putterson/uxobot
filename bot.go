@@ -89,7 +89,7 @@ func evalAIBoard(board *Board, scores *Scores) int {
 		} else if s == -3000 {
 			return SCOREMIN
 		} else {
-			score = (((intscores[l.x2][l.y2] + 1000.0) / 2000.0) + ((intscores[l.x2][l.y2] + 1000.0) / 2000.0) + ((intscores[l.x3][l.y3] + 1000.0) / 2000.0))/3
+			score = ((intscores[l.x1][l.y1] / 1000.0) + (intscores[l.x2][l.y2] / 1000.0) + (intscores[l.x3][l.y3] / 1000.0))/3
 // 			fmt.Println(square)
 // 			score += (square * square) - 0.5
 		}
@@ -115,7 +115,7 @@ func evalBoard(board *Board) int {
 		} else if s == -3000 {
 			return SCOREMIN
 		} else {
-			score = (((intscores[l.x2][l.y2] + 1000.0) / 2000.0) + ((intscores[l.x2][l.y2] + 1000.0) / 2000.0) + ((intscores[l.x3][l.y3] + 1000.0) / 2000.0))/3
+			score = ((intscores[l.x1][l.y1] / 1000.0) + (intscores[l.x2][l.y2] / 1000.0) + (intscores[l.x3][l.y3] / 1000.0))/3
 // 			fmt.Println(square)
 // 			score += (square * square) - 0.5
 		}

@@ -70,8 +70,8 @@ func main() {
 	var b *Board
 
 	settings := &GameSettings{
-		[2]string{"cpu",	"cpu",},
-		[2]int{8,4,},
+		[2]string{"cpu","cpu",},
+		[2]int{8,1,},
 		X,
 		false,
 		false,
@@ -121,7 +121,6 @@ func gameloop(s *GameSettings){
 			move = getCpuMove(s.board, &lastmove, s.curplayer, s.depth[s.curplayer-1])
 		}
 
-		drawBoard(s.board, move)
 
 		if evalBoard(s.board) == SCOREMAX {
 			fmt.Println("X Wins the game!")
@@ -135,6 +134,7 @@ func gameloop(s *GameSettings){
 		}
 
 		(*s.board)[move.x][move.y] = s.curplayer
+		drawBoard(s.board, move)
 
 		lastmove = move
 		s.curplayer = notPlayer(s.curplayer)
