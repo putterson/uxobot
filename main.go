@@ -18,7 +18,6 @@ const (
 	O int = 2
 )
 var maptochar = []string{" ", "X", "O"}
-var playerconf = []string{"cpu", "cpu"}
 func notPlayer(p int) int {
 	if p == X {
 		return O
@@ -70,8 +69,8 @@ func main() {
 	var b *Board
 
 	settings := &GameSettings{
-		[2]string{"cpu",	"cpu",},
-		[2]int{8,4,},
+		[2]string{"human","cpu",},
+		[2]int{2,8,},
 		X,
 		false,
 		false,
@@ -85,6 +84,7 @@ func main() {
 
 		if strings.Contains(input, "help"){
 			fmt.Println("There should be some help here...")
+			fmt.Println("Available commands are: start, quit, evala, evalb")
 		} else if strings.Contains(input, "quit") || strings.Contains(input, "exit") {
 			os.Exit(0)
 		} else if strings.Contains(input, "evalb") && gamerunning {
@@ -102,6 +102,8 @@ func main() {
 					b[x][y] = B
 				}
 			}
+
+			settings.board = b
 			gameloop(settings)
 		} else {
 			fmt.Println("Enter a valid command or type help.")
@@ -116,12 +118,15 @@ func gameloop(s *GameSettings){
 	for {
 
 		if s.players[s.curplayer-1] == "human" {
-			move = getMove(s.board, lastmove)
+			if len(genHumanChildren(s.board, lastmove)) > 0 {
+				move = getMove(s.board, lastmove)
+			} else {
+				move = NewMove();
+			}
 		} else {
 			move = getCpuMove(s.board, &lastmove, s.curplayer, s.depth[s.curplayer-1])
 		}
 
-		drawBoard(s.board, move)
 
 		if evalBoard(s.board) == SCOREMAX {
 			fmt.Println("X Wins the game!")
@@ -135,6 +140,7 @@ func gameloop(s *GameSettings){
 		}
 
 		(*s.board)[move.x][move.y] = s.curplayer
+		drawBoard(s.board, move)
 
 		lastmove = move
 		s.curplayer = notPlayer(s.curplayer)
@@ -235,7 +241,7 @@ func getCpuMove(b *Board, lastmove *Move, player int, depth int) Move {
 
 	(*node.moves).PushMove(*lastmove)
 	//node.moves.Print()
-	entry, move, err := negamax(node, depth, SCOREMIN, SCOREMAX, player, true)
+	entry, move, err := negamax(node, depth, SCOREMIN - 1, SCOREMAX + 1, player, true)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
