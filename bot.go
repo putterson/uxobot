@@ -89,8 +89,7 @@ func evalAIBoard(board *Board, scores *Scores) int {
 		} else if s == -3000 {
 			return SCOREMIN
 		} else {
-			//			score = (((intscores[l.x1][l.y1] + 1000.0) / 2000.0) + ((intscores[l.x2][l.y2] + 1000.0) / 2000.0) + ((intscores[l.x3][l.y3] + 1000.0) / 2000.0))/3
-			score = (((intscores[l.x1][l.y1]) / 1000.0) + ((intscores[l.x2][l.y2]) / 1000.0) + ((intscores[l.x3][l.y3]) / 1000.0))/3
+			score = ((intscores[l.x1][l.y1] / 1000.0) + (intscores[l.x2][l.y2] / 1000.0) + (intscores[l.x3][l.y3] / 1000.0))/3
 // 			fmt.Println(square)
 // 			score += (square * square) - 0.5
 		}
@@ -116,8 +115,7 @@ func evalBoard(board *Board) int {
 		} else if s == -3000 {
 			return SCOREMIN
 		} else {
-//			score = (((intscores[l.x1][l.y1] + 1000.0) / 2000.0) + ((intscores[l.x2][l.y2] + 1000.0) / 2000.0) + ((intscores[l.x3][l.y3] + 1000.0) / 2000.0))/3
-			score = (((intscores[l.x1][l.y1]) / 1000.0) + ((intscores[l.x2][l.y2]) / 1000.0) + ((intscores[l.x3][l.y3]) / 1000.0))/3
+			score = ((intscores[l.x1][l.y1] / 1000.0) + (intscores[l.x2][l.y2] / 1000.0) + (intscores[l.x3][l.y3] / 1000.0))/3
 // 			fmt.Println(square)
 // 			score += (square * square) - 0.5
 		}
@@ -231,11 +229,6 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 	lastmove := node.moves.LastMove()
 	//drawBoard(node.board, lastmove)
 	children := genChildren(node.board, &lastmove, node.scores)
-	// FIXME: attempt at depth first
-//	if len(children) > 4 {
-//		children = children[0:len(children) / 2]
-//	}
-
 	if depth == 0 || len(children) == 0 {
 		//fmt.Printf("FIN depth %d children %d\n",depth, len(children))
 		return CacheEntry{
