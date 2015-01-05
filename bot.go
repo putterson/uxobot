@@ -1,6 +1,9 @@
 package main
 
-//import ("fmt")
+import (
+	"fmt"
+	"math/rand"
+)
 
 // Constants for the max and minimum board scores
 const (
@@ -41,8 +44,11 @@ var winlines = []Line{
 	Line{x1: 0, x2: 1, x3: 2, y1: 2, y2: 1, y3: 0},
 }
 
+var zobrist_keys [4][9][9][3]BHash
+
 //AI types and structs
 type BHash uint64
+type BHashes []BHash
 type CacheEntry struct {
 	cutoff int
 	depth  int
@@ -54,7 +60,7 @@ type AINode struct {
 	moves  *MoveSlice
 	cache  map[BHash]CacheEntry
 	scores *Scores
-	hash   BHash
+	hashes   BHashes
 }
 
 /*
@@ -226,11 +232,13 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 	//fmt.Printf("depth: %d\n", depth)
 	//fmt.Printf("Movecount: %d ", len(*node.moves))
 	//node.moves.Print()
+	hash := canon_hash(node.hashes)
+
 	lastmove := node.moves.LastMove()
 	//drawBoard(node.board, lastmove)
 	children := genChildren(node.board, &lastmove, node.scores)
 	if depth == 0 || len(children) == 0 {
-		//fmt.Printf("FIN depth %d children %d\n",depth, len(children))
+		fmt.Printf("FIN depth %d children %d\n",depth, len(children))
 		return CacheEntry{
 			//FIXME: CHANGE THIS to be correct
 			cutoff: alpha,
@@ -240,7 +248,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 		}, Move{NoMove, NoMove}, nil
 	}
 
-	maxScore := SCOREMIN
+	maxScore := SCOREMIN - 1
 	var maxEntry CacheEntry
 
 	bestChild := Move{NoMove, NoMove}
@@ -273,4 +281,73 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 		}
 	}
 	return maxEntry, bestChild, nil
+}
+
+func hash_cell(board *Board, x int, y int, orientation int) BHash {
+	var cell int = board[x][y]
+	var hash BHash
+	hash = zobrist_keys[orientation][x][y][cell]
+	return hash
+}
+
+func hash_board(board *Board) BHashes{
+	var hashes BHashes
+
+	for orientation := 0; orientation < 4; orientation++ {
+		var hash BHash = 0
+		for x := 0; x < 4; x++ {
+			for y := 0; y < 4; y++ {
+				for player := 0; player < 3; player++ {
+					hash ^= hash_cell(board, x, y, orientation)
+				}
+			}
+		}
+		hashes[orientation] = hash
+	}
+
+	return hashes
+}
+
+func canon_hash(hashes BHashes) BHash{
+	var canonicalHash BHash = 0
+	for _, hash := range hashes {
+		canonicalHash = min(canonicalHash, hash)
+	}
+	return canonicalHash
+}
+
+func min(h1 BHash, h2 BHash) BHash {
+	if h1 < h2 {
+		return h1
+	}else {
+		return h2
+	}
+}
+
+func init_zobrist_keys(){
+	for ori, a := range zobrist_keys{
+		for x, b := range a {
+			for y, c := range b {
+				for player, _ := range c {
+					zobrist_keys[ori][x][y][player] = randBHash()
+				}
+			}
+		}
+	}
+}
+
+func print_zobrist_keys(){
+	for ori, a := range zobrist_keys{
+		for x, b := range a {
+			for y, c := range b {
+				for player, _ := range c {
+					fmt.Println(zobrist_keys[ori][x][y][player])
+				}
+			}
+		}
+	}
+}
+
+func randBHash() BHash {
+	return BHash(rand.Uint32())<<32 + BHash(rand.Uint32())
 }

@@ -70,7 +70,7 @@ func main() {
 
 	settings := &GameSettings{
 		[2]string{"human","cpu",},
-		[2]int{2,8,},
+		[2]int{3,7,},
 		X,
 		false,
 		false,
@@ -79,6 +79,9 @@ func main() {
 	}
 
 	for {
+		fmt.Println("Initializing Zobrist keys...");
+		init_zobrist_keys()
+
 		fmt.Printf(colourString("[uxobot]>"))
 		var input, _ = Stdin.ReadString('\n')
 
@@ -121,7 +124,7 @@ func gameloop(s *GameSettings){
 			if len(genHumanChildren(s.board, lastmove)) > 0 {
 				move = getMove(s.board, lastmove)
 			} else {
-				move = NewMove();
+				move = *NewMove();
 			}
 		} else {
 			move = getCpuMove(s.board, &lastmove, s.curplayer, s.depth[s.curplayer-1])
@@ -349,6 +352,7 @@ func drawBoard(b *Board, move Move) {
 }
 
 func colourString(c string) string{
+	return c
 	return "\x1b[31;1m" + c + "\x1b[0m"
 }
 
