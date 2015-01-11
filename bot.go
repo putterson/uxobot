@@ -9,6 +9,9 @@ import (
 const (
 	SCOREMAX = 1000000
 	SCOREMIN =-1000000
+	SCORE_EXACT = 0
+	SCORE_UPPER_BOUND = 1
+	SCORE_LOWER_BOUND = 2
 )
 
 var wins = [][]int{
@@ -45,22 +48,28 @@ var winlines = []Line{
 }
 
 var zobrist_keys [4][9][9][3]BHash
+var ai_cache AICache = make(AICache)
 
 //AI types and structs
 type BHash uint64
-type BHashes []BHash
+type BHashes [4]BHash
+
+type AICache map[BHash]CacheEntry
+
 type CacheEntry struct {
-	cutoff int
 	depth  int
 	score  int
+	flag   int
 	move   Move
+	player int
 }
+
 type AINode struct {
 	board  *Board
 	moves  *MoveSlice
-	cache  map[BHash]CacheEntry
+	cache  AICache
 	scores *Scores
-	hashes   BHashes
+	hashes   BHash
 }
 
 /*
@@ -232,19 +241,49 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 	//fmt.Printf("depth: %d\n", depth)
 	//fmt.Printf("Movecount: %d ", len(*node.moves))
 	//node.moves.Print()
-	hash := canon_hash(node.hashes)
+
+	originalAlpha := alpha
+
+	//TODO: remember to use canonical hash here
+	hash := node.hashes
 
 	lastmove := node.moves.LastMove()
-	//drawBoard(node.board, lastmove)
+
+	cache_entry, exists := ai_cache[hash]
+
+	if exists == true && !first {
+		if cache_entry.depth >= depth {
+			if cache_entry.flag == SCORE_EXACT {
+//				fmt.Println("Cache entry exact. depth ", depth)
+				return cache_entry, Move{NoMove, NoMove}, nil
+			} else if cache_entry.flag == SCORE_LOWER_BOUND {
+				alpha = max(alpha, cache_entry.score)
+			} else if cache_entry.flag == SCORE_UPPER_BOUND {
+				beta = min(beta, cache_entry.score)
+			}
+
+			if alpha >= beta {
+//				fmt.Println("Cache entry a > b. depth ", depth)
+				return cache_entry, Move{NoMove, NoMove}, nil
+			}
+		} else {
+			delete(ai_cache, hash)
+		}
+	}
+
+
 	children := genChildren(node.board, &lastmove, node.scores)
-	if depth == 0 || len(children) == 0 {
-		fmt.Printf("FIN depth %d children %d\n",depth, len(children))
+	//TODO: Order moves to increase performance
+
+	//TODO: check for won game
+	if depth == 0 || len(children) == 0 || won(node.board) {
+//		fmt.Printf("FIN depth %d children %d\n",depth, len(children))
 		return CacheEntry{
 			//FIXME: CHANGE THIS to be correct
-			cutoff: alpha,
 			depth:  depth,
 			score:  playerToMul(player) * evalAIBoard(node.board, node.scores),
 			move:   lastmove,
+			player: player,
 		}, Move{NoMove, NoMove}, nil
 	}
 
@@ -258,6 +297,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 		// PushMove will panic if it fails (shouldn't fail)
 		node.moves.PushMove(child)
 		node.board[child.x][child.y] = player
+		node.hashes ^= zobrist_keys[0][child.x][child.y][player]
 
 		// NOTE: alpha and beta are negated and swapped for the subcall to negamax
 		entry, _, err := negamax(node, depth-1, -beta, -alpha, notPlayer(player), false)
@@ -265,10 +305,11 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 			return *new(CacheEntry), Move{NoMove, NoMove}, err
 		}
 		entry.score = -entry.score
+		node.hashes ^= zobrist_keys[0][child.x][child.y][player]
 		node.board[child.x][child.y] = B
 		node.moves.RemMove()
 
-		if entry.score > maxScore {
+		if entry.score > maxScore || (entry.score == maxScore && entry.depth > maxEntry.depth){
 			maxScore = entry.score
 			maxEntry = entry
 			if first {
@@ -280,43 +321,52 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 			break
 		}
 	}
+
+	if maxEntry.score <= originalAlpha {
+		maxEntry.flag = SCORE_UPPER_BOUND
+	}else if maxEntry.score >= beta {
+		maxEntry.flag = SCORE_LOWER_BOUND
+	}else {
+		maxEntry.flag = SCORE_EXACT
+	}
+	//TODO: suspect line
+	maxEntry.depth = depth
+
+	//TODO: remember to use canonical hash here
+	ai_cache[node.hashes] = maxEntry
+
 	return maxEntry, bestChild, nil
 }
 
 func hash_cell(board *Board, x int, y int, orientation int) BHash {
-	var cell int = board[x][y]
+	var player int = board[x][y]
 	var hash BHash
-	hash = zobrist_keys[orientation][x][y][cell]
+	hash = zobrist_keys[orientation][x][y][player]
 	return hash
 }
 
-func hash_board(board *Board) BHashes{
-	var hashes BHashes
+func hash_board(board *Board) BHash{
+        var hash BHash = 0
+        for x := 0; x < 9; x++ {
+                for y := 0; y < 9; y++ {
+                        hash ^= hash_cell(board, x, y, 0)
+                }
+        }
+        
 
-	for orientation := 0; orientation < 4; orientation++ {
-		var hash BHash = 0
-		for x := 0; x < 4; x++ {
-			for y := 0; y < 4; y++ {
-				for player := 0; player < 3; player++ {
-					hash ^= hash_cell(board, x, y, orientation)
-				}
-			}
-		}
-		hashes[orientation] = hash
-	}
 
-	return hashes
+	return hash
 }
 
 func canon_hash(hashes BHashes) BHash{
 	var canonicalHash BHash = 0
 	for _, hash := range hashes {
-		canonicalHash = min(canonicalHash, hash)
+		canonicalHash = minBHash(canonicalHash, hash)
 	}
 	return canonicalHash
 }
 
-func min(h1 BHash, h2 BHash) BHash {
+func minBHash(h1 BHash, h2 BHash) BHash {
 	if h1 < h2 {
 		return h1
 	}else {
@@ -350,4 +400,12 @@ func print_zobrist_keys(){
 
 func randBHash() BHash {
 	return BHash(rand.Uint32())<<32 + BHash(rand.Uint32())
+}
+
+func won(board *Board) bool{
+	score := evalBoard(board)
+	if score == SCOREMAX || score == SCOREMIN {
+		return true
+	}
+	return false
 }

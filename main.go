@@ -69,8 +69,8 @@ func main() {
 	var b *Board
 
 	settings := &GameSettings{
-		[2]string{"human","cpu",},
-		[2]int{3,7,},
+		[2]string{"cpu","cpu",},
+		[2]int{5,8,},
 		X,
 		false,
 		false,
@@ -78,9 +78,9 @@ func main() {
 		new(Board),
 	}
 
+	fmt.Println("Initializing Zobrist keys...");
+	init_zobrist_keys()
 	for {
-		fmt.Println("Initializing Zobrist keys...");
-		init_zobrist_keys()
 
 		fmt.Printf(colourString("[uxobot]>"))
 		var input, _ = Stdin.ReadString('\n')
@@ -98,7 +98,9 @@ func main() {
 			}
 		} else if strings.Contains(input, "evala") && settings.running {
 			fmt.Printf("Score of whole board is: %d\n", evalBoard(b))
-		} else if strings.Contains(input, "start") && !settings.running {
+		} else if strings.Contains(input, "clearcache") {
+			ai_cache = make(AICache)
+		} else if len(input) < 2 || strings.Contains(input, "start") && !settings.running {
 			b = new(Board)
 			for x := range b {
 				for y := range b[x] {
@@ -107,7 +109,19 @@ func main() {
 			}
 
 			settings.board = b
+			settings.curplayer = X
 			gameloop(settings)
+		} else if strings.Contains(input, "up") {
+			settings.depth[0]++
+			settings.depth[1]++
+			fmt.Printf("Difficulties: X: %d -- O: %d\n", settings.depth[0], settings.depth[1]);
+		} else if strings.Contains(input, "down") {
+			settings.depth[0]--
+			settings.depth[1]--
+			fmt.Printf("Difficulties: X: %d -- O: %d\n", settings.depth[0], settings.depth[1]);
+		} else if strings.Contains(input, "stats") {
+			fmt.Printf("Difficulties: X: %d -- O: %d\n", settings.depth[0], settings.depth[1]);
+			fmt.Printf("Cache size: %d", len(ai_cache))
 		} else {
 			fmt.Println("Enter a valid command or type help.")
 		}
@@ -130,6 +144,18 @@ func gameloop(s *GameSettings){
 			move = getCpuMove(s.board, &lastmove, s.curplayer, s.depth[s.curplayer-1])
 		}
 
+		if (move.x == NoMove) && (move.y == NoMove) {
+			drawBoard(s.board, move)
+			fmt.Println("Game Over!")
+			fmt.Printf("Hash: %x\n", hash_board(s.board))
+			return
+		}
+
+		(*s.board)[move.x][move.y] = s.curplayer
+		drawBoard(s.board, move)
+		fmt.Printf("Hash: %x\n", hash_board(s.board))
+
+
 
 		if evalBoard(s.board) == SCOREMAX {
 			fmt.Println("X Wins the game!")
@@ -137,13 +163,7 @@ func gameloop(s *GameSettings){
 		} else if evalBoard(s.board) == SCOREMIN {
 			fmt.Println("O Wins the game!")
 			return
-		} else if (move.x == NoMove) && (move.y == NoMove) {
-			fmt.Println("Game Over!")
-			return
 		}
-
-		(*s.board)[move.x][move.y] = s.curplayer
-		drawBoard(s.board, move)
 
 		lastmove = move
 		s.curplayer = notPlayer(s.curplayer)
@@ -197,6 +217,13 @@ func max(a int, b int) int{
 	return b
 }
 
+func min(a int, b int) int{
+	if a < b{
+		return a
+	}
+	return b
+}
+
 func getMove(board *Board, lastmove Move) (move Move) {
 	move = *(new(Move))
 	var b, c int
@@ -237,10 +264,11 @@ func getMove(board *Board, lastmove Move) (move Move) {
 
 func getCpuMove(b *Board, lastmove *Move, player int, depth int) Move {
 	moves := make(MoveSlice, 0, depth + 1)
-
+	ai_cache = make(AICache)
 	node := new(AINode)
 	node.board = b
 	node.moves = &moves
+	node.hashes = hash_board(b)
 
 	(*node.moves).PushMove(*lastmove)
 	//node.moves.Print()
@@ -249,7 +277,8 @@ func getCpuMove(b *Board, lastmove *Move, player int, depth int) Move {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	fmt.Printf("Move: [%d,%d] Score: %d\n", move.x, move.y, entry.score)
+
+	fmt.Printf("Move: [%d,%d] Score: %d Cache_s: %d\n", move.x, move.y, entry.score, len(ai_cache))
 	return move
 }
 
@@ -352,7 +381,7 @@ func drawBoard(b *Board, move Move) {
 }
 
 func colourString(c string) string{
-	return c
+//	return c
 	return "\x1b[31;1m" + c + "\x1b[0m"
 }
 
