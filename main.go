@@ -6,6 +6,7 @@ import (
 	"os"
 // 	"os/signal"
 	"strings"
+	"flag"
 	//"errors"
 )
 
@@ -31,6 +32,12 @@ type Move struct {
 	x int
 	y int
 }
+
+type MoveScore struct {
+	move Move
+	score int
+}
+
 const NoMove int = 254
 
 func NewMove() *Move {
@@ -70,7 +77,7 @@ func main() {
 
 	settings := &GameSettings{
 		[2]string{"cpu","cpu",},
-		[2]int{5,8,},
+		[2]int{8,9,},
 		X,
 		false,
 		false,
@@ -80,6 +87,27 @@ func main() {
 
 	fmt.Println("Initializing Zobrist keys...");
 	init_zobrist_keys()
+
+	prompt := flag.Bool("prompt", false, "Don't start game immediately.")
+	ai_one := flag.Int("s1", 6, "Set AI 1 strength.")
+	ai_two := flag.Int("s2", 8, "Set AI 2 strength.")
+
+	player_one := flag.String("p1", "cpu", "Set player 1 to cpu or human.")
+	player_two := flag.String("p2", "cpu", "Set player 2 to cpu or human.")
+
+	flag.Parse()
+
+	if !(*prompt) {
+		settings.players[0] = *player_one
+		settings.players[1] = *player_two
+		settings.depth[0] = *ai_one
+		settings.depth[1] = *ai_two
+		settings.board = newBoard()
+		settings.curplayer = X
+		gameloop(settings)
+		os.Exit(0)
+	}
+
 	for {
 
 		fmt.Printf(colourString("[uxobot]>"))
@@ -101,14 +129,7 @@ func main() {
 		} else if strings.Contains(input, "clearcache") {
 			ai_cache = make(AICache)
 		} else if len(input) < 2 || strings.Contains(input, "start") && !settings.running {
-			b = new(Board)
-			for x := range b {
-				for y := range b[x] {
-					b[x][y] = B
-				}
-			}
-
-			settings.board = b
+			settings.board = newBoard()
 			settings.curplayer = X
 			gameloop(settings)
 		} else if strings.Contains(input, "up") {
@@ -126,6 +147,16 @@ func main() {
 			fmt.Println("Enter a valid command or type help.")
 		}
 	}
+}
+
+func newBoard() *Board {
+	b := new(Board)
+	for x := range b {
+		for y := range b[x] {
+			b[x][y] = B
+		}
+	}
+	return b
 }
 
 
@@ -267,6 +298,7 @@ func getCpuMove(b *Board, lastmove *Move, player int, depth int) Move {
 	ai_cache = make(AICache)
 	node := new(AINode)
 	node.board = b
+	node.scores = new(Scores)
 	node.moves = &moves
 	node.hashes = hash_board(b)
 
