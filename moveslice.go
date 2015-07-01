@@ -49,3 +49,15 @@ func (m *MoveSlice) Print() {
     }
     fmt.Printf("\n")
 }
+
+//MoveByScore implements sort.Interface for []MoveScore
+type MoveByScore []MoveScore
+
+func (m MoveByScore) Len() int             { return len(m) }
+func (m MoveByScore) Swap(i, j int)        { m[i], m[j] = m[j], m[i] }
+func (m MoveByScore) Less(i, j int) bool   { return m[i].score > m[j].score }
+func (m MoveByScore) Print() {
+    for _, move := range m {
+        fmt.Printf("%d: %d,%d\n", move.score, move.move.x, move.move.y)
+    }
+}
