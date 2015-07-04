@@ -8,6 +8,7 @@ import (
 	"strings"
 	"flag"
 	//"errors"
+	"time"
 )
 
 var Stdin = bufio.NewReader(os.Stdin)
@@ -304,13 +305,31 @@ func getCpuMove(b *Board, lastmove *Move, player int, depth int) Move {
 
 	(*node.moves).PushMove(*lastmove)
 	//node.moves.Print()
-	entry, move, err := negamax(node, depth, SCOREMIN - 1, SCOREMAX + 1, player, true)
+	start_t := time.Now()
+	var entry CacheEntry
+	var move Move
+	var err error
+	// for cur_depth := 1; cur_depth <= depth; cur_depth++ {
+	// 	entry, move, err = negamax(node, cur_depth, SCOREMIN - 1, SCOREMAX + 1, player, true)
+	// 	if err != nil {
+	// 		fmt.Println(err.Error())
+	// 		os.Exit(1)
+	// 	}
+	// 	if time.Since(start_t).Seconds() > 10.0 {
+	// 		break
+	// 	}
+	// }
+
+	entry, move, err = negamax(node, depth, SCOREMIN - 1, SCOREMAX + 1, player, true)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
+	
+	duration := time.Since(start_t).Seconds()
 
-	fmt.Printf("Move: [%d,%d] Score: %d Cache_s: %d\n", move.x, move.y, entry.score, len(ai_cache))
+
+	fmt.Printf("Move: [%d,%d] Score: %d Cache_s: %d Time (s): %.2f\n", move.x, move.y, entry.score, len(ai_cache), duration)
 	return move
 }
 

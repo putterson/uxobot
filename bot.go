@@ -108,12 +108,10 @@ func evalAIBoard(node *AINode) int {
 			return SCOREMIN
 		} else {
 			score += ((intscores[l.x1][l.y1] / 1000.0) + (intscores[l.x2][l.y2] / 1000.0) + (intscores[l.x3][l.y3] / 1000.0))/3
-// 			fmt.Println(square)
-// 			score += (square * square) - 0.5
 		}
 	}
 // 	fmt.Println(score)
-	return int(score * 500000)
+	return int(score * 100000)
 }
 
 func evalBoard(board *Board) int {
@@ -139,7 +137,7 @@ func evalBoard(board *Board) int {
 		}
 	}
 // 	fmt.Println(score)
-	return int(score * 500000)
+	return int(score * 100000)
 }
 
 // evaluate the score of a sub-board always with regard to X
