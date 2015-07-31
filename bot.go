@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"math"
 	"sort"
 )
 
@@ -13,6 +14,9 @@ const (
 	SCORE_EXACT = 0
 	SCORE_UPPER_BOUND = 1
 	SCORE_LOWER_BOUND = 2
+
+	//Draw on a sub-board is defined as 1024 
+	SCOREDRAW = 1 << 10
 )
 
 var wins = [][]int{
@@ -87,57 +91,73 @@ func playerToMul(player int) int {
 	}
 }
 
-// evaluate the score of the board specialized for the AI
+//Return the score as a float from 0 to 1, or NaN in the case of a drawn board
+func normSubScore(score int) float64 {
+	if score == SCOREDRAW {
+		return math.NaN()
+	} else {
+		return float64(score + 1000) / 2000.0
+	}
+}
+
 func evalAIBoard(node *AINode) int {
-	board := node.board
-	// scores := node.scores
-	score := 0.0
-	intscores := [3][3]float64{}
+	floatscores := [3][3]float64{}
 
 	for bx := 0; bx < 3; bx++ {
 		for by := 0; by < 3; by++ {
-			intscores[bx][by] = float64(evalSubBoard(board, bx*3, by*3))
+			floatscores[bx][by] = normSubScore(evalSubBoard(node.board, bx*3, by*3))
 		}
 	}
-
-	for _, l := range winlines {
-		s := intscores[l.x1][l.y1] + intscores[l.x2][l.y2] + intscores[l.x3][l.y3]
-		if s == 3000 {
-			return SCOREMAX
-		} else if s == -3000 {
-			return SCOREMIN
-		} else {
-			score += ((intscores[l.x1][l.y1] / 1000.0) + (intscores[l.x2][l.y2] / 1000.0) + (intscores[l.x3][l.y3] / 1000.0))/3
-		}
-	}
-// 	fmt.Println(score)
-	return int(score * 100000)
+	return evalSuperBoard(floatscores)
 }
 
 func evalBoard(board *Board) int {
-	score := 0.0
-	intscores := [3][3]float64{}
+	floatscores := [3][3]float64{}
 
 	for bx := 0; bx < 3; bx++ {
 		for by := 0; by < 3; by++ {
-			intscores[bx][by] = float64(evalSubBoard(board, bx*3, by*3))
+			floatscores[bx][by] = normSubScore(evalSubBoard(board, bx*3, by*3))
 		}
 	}
+	return evalSuperBoard(floatscores)
+}
+
+func evalSuperBoard(floatscores[3][3] float64) int {
+
+
+	//var xsum, osum float64
+	var xmax, omax float64
 
 	for _, l := range winlines {
-		s := intscores[l.x1][l.y1] + intscores[l.x2][l.y2] + intscores[l.x3][l.y3]
-		if s == 3000 {
+		xs := floatscores[l.x1][l.y1] * floatscores[l.x2][l.y2] * floatscores[l.x3][l.y3]
+		os := (1.0 - floatscores[l.x1][l.y1]) * (1.0 - floatscores[l.x2][l.y2]) * (1.0 - floatscores[l.x3][l.y3])
+		if xs == 1.0 {
 			return SCOREMAX
-		} else if s == -3000 {
+		} else if os == 1.0 {
 			return SCOREMIN
-		} else {
-			score += ((intscores[l.x1][l.y1] / 1000.0) + (intscores[l.x2][l.y2] / 1000.0) + (intscores[l.x3][l.y3] / 1000.0))/3
-// 			fmt.Println(square)
-// 			score += (square * square) - 0.5
+		}
+
+
+		if !math.IsNaN(xs) { //If the line isn't a draw
+			xmax = math.Max(xmax, xs)
+			omax = math.Max(omax, os)
 		}
 	}
-// 	fmt.Println(score)
-	return int(score * 100000)
+	
+	return int((xmax - omax) * 100000)
+}
+
+func spreadOfSlice(slice *[]float64) float64 {
+	maxEntry := 0.0
+	minEntry := 0.0
+
+	for _, entry := range *slice {
+		maxEntry = math.Max(maxEntry, entry)
+		minEntry = math.Min(minEntry, entry)
+	}
+
+	//minEntry must be <= 0 and maxEntry >= 0
+	return minEntry + maxEntry
 }
 
 // evaluate the score of a sub-board always with regard to X
@@ -148,6 +168,8 @@ func evalSubBoard(board *Board, bx int, by int) int {
 	for x := 0; x < 3; x++ {
 		b[x] = bcols[x][by:by+3]
 	}
+
+	pieces := false
 
 	xS := new(Scores)
 	oS := new(Scores)
@@ -162,7 +184,10 @@ func evalSubBoard(board *Board, bx int, by int) int {
 		//fmt.Printf("OR: %b, AND: %b\n", n, s)
 
 		// if there are mixed players or no players in a line
-		if n > 2 || n == 0 {
+		if n > 2 {
+			pieces = true
+			continue
+		} else if n == 0 {
 			continue
 		}
 
@@ -241,6 +266,10 @@ func evalSubBoard(board *Board, bx int, by int) int {
 	//fmt.Printf("\nones: %d twos: %d\n", ones, twos)
 	score -= int(10*ones + twos)
 
+	if score == 0 && pieces {
+		return SCOREDRAW
+	}
+
 	return score
 }
 
@@ -265,7 +294,7 @@ func getMoveScores(node *AINode, moves *MoveSlice, player int) MoveByScore {
 			moveScoreSlice[i].score = cache_entry.score
 		} else {
 			node.board[move.x][move.y] = player
-			moveScoreSlice[i].score = evalBoard(node.board)
+			moveScoreSlice[i].score = evalAIBoard(node)
 			node.board[move.x][move.y] = B
 			// moveScoreSlice[i].score = 0
 		}
@@ -312,15 +341,17 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 
 	children := genChildren(node.board, &lastmove, node.scores)
 	//TODO: Order moves to increase performance
-	// orderChildren(node, &children, player)
+	//orderChildren(node, &children, player)
 
 	//TODO: check for won game or finished search
-	if depth == 0 || len(children) == 0 || won(node.board) {
+	curScore := evalAIBoard(node)
+	
+	if depth == 0 || len(children) == 0 || won(curScore) {
 //		fmt.Printf("FIN depth %d children %d\n",depth, len(children))
 		return CacheEntry{
 			//FIXME: CHANGE THIS to be correct
 			depth:  depth,
-			score:  playerToMul(player) * evalAIBoard(node),
+			score:  playerToMul(player) * curScore,
 			move:   lastmove,
 			player: player,
 		}, Move{NoMove, NoMove}, nil
@@ -444,8 +475,7 @@ func randBHash() BHash {
 	return BHash(rand.Uint32())<<32 + BHash(rand.Uint32())
 }
 
-func won(board *Board) bool{
-	score := evalBoard(board)
+func won(score int) bool {
 	if score == SCOREMAX || score == SCOREMIN {
 		return true
 	}
