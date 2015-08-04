@@ -61,3 +61,9 @@ func (m MoveByScore) Print() {
         fmt.Printf("%d: %d,%d\n", move.score, move.move.x, move.move.y)
     }
 }
+
+func (s *Scores) Print() {
+	for y := 0; y < 3; y++ {
+		fmt.Printf("%3.4f | %3.4f | %3.4f\n", s[0][y], s[1][y], s[2][y])
+	}
+}

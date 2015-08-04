@@ -101,18 +101,30 @@ func normSubScore(score int) float64 {
 }
 
 func evalAIBoard(node *AINode) int {
-	floatscores := [3][3]float64{}
+	//Really only need to check one of the axes
+	// If there was a last move we only need to update one of the subboard scores (which the move was made in)
+	// return evalSuperBoard(getSuperScores(node.board))
+	
+	if (*node.moves).LastMove().x != NoMove {
+		subboard := move_to_subboard((*node.moves).LastMove())
+		node.scores[subboard.x/3][subboard.y/3] = normSubScore(evalSubBoard(node.board, subboard.x, subboard.y))
+	}
 
+	return evalSuperBoard(node.scores)
+}
+
+func getSuperScores(board *Board) *Scores {
+	floatscores := new(Scores)
 	for bx := 0; bx < 3; bx++ {
 		for by := 0; by < 3; by++ {
-			floatscores[bx][by] = normSubScore(evalSubBoard(node.board, bx*3, by*3))
+			floatscores[bx][by] = normSubScore(evalSubBoard(board, bx*3, by*3))
 		}
 	}
-	return evalSuperBoard(floatscores)
+	return floatscores
 }
 
 func evalBoard(board *Board) int {
-	floatscores := [3][3]float64{}
+	floatscores := new(Scores)
 
 	for bx := 0; bx < 3; bx++ {
 		for by := 0; by < 3; by++ {
@@ -122,9 +134,7 @@ func evalBoard(board *Board) int {
 	return evalSuperBoard(floatscores)
 }
 
-func evalSuperBoard(floatscores[3][3] float64) int {
-
-
+func evalSuperBoard(floatscores *Scores) int {
 	//var xsum, osum float64
 	var xmax, omax float64
 
@@ -161,6 +171,7 @@ func spreadOfSlice(slice *[]float64) float64 {
 }
 
 // evaluate the score of a sub-board always with regard to X
+// bx and by are the top left corner of the subboard to score	
 func evalSubBoard(board *Board, bx int, by int) int {
 	// fmt.Println(len(board[bx:bx+3]))
 	bcols := board[bx:bx+3]
@@ -171,9 +182,9 @@ func evalSubBoard(board *Board, bx int, by int) int {
 
 	pieces := false
 
-	xS := new(Scores)
-	oS := new(Scores)
-	var sS *Scores
+	xS := new(SubScores)
+	oS := new(SubScores)
+	var sS *SubScores
 	var score int
 	score = 0
 	//fmt.Println("Entering evalSubBoard at location",bx,by)
@@ -201,72 +212,78 @@ func evalSubBoard(board *Board, bx int, by int) int {
 		}
 
 		// which player can win this line
-		if n == 1 {
+		if n == X {
 			sS = xS
 		} else {
 			sS = oS
 		}
 
+		// if this line has a single piece
 		if s == n {
-			if b[l.x1][l.y1] == 0 {
+			
+			if b[l.x1][l.y1] == B {
 				sS[l.x1][l.y1] |= 2
 			}
-			if b[l.x2][l.y2] == 0 {
+			if b[l.x2][l.y2] == B {
 				sS[l.x2][l.y2] |= 2
 			}
-			if b[l.x3][l.y3] == 0 {
+			if b[l.x3][l.y3] == B {
 				sS[l.x3][l.y3] |= 2
 			}
 		} else {
-			if b[l.x1][l.y1] == 0 {
+			if b[l.x1][l.y1] == B {
 				sS[l.x1][l.y1] |= 1
 			}
-			if b[l.x2][l.y2] == 0 {
+			if b[l.x2][l.y2] == B {
 				sS[l.x2][l.y2] |= 1
 			}
-			if b[l.x3][l.y3] == 0 {
+			if b[l.x3][l.y3] == B {
 				sS[l.x3][l.y3] |= 1
 			}
 		}
 	}
 
 	// tally the score
-	var ones int
-	var twos int
+	var Xones int
+	var Xtwos int
 
-	ones = 0
-	twos = 0
+	Xones = 0
+	Xtwos = 0
 
 	for x := 0; x < 3; x++ {
 		for y := 0; y < 3; y++ {
 			//		fmt.Print(xS[x][y])
 			if xS[x][y]&1 == 1 {
-				ones++
+				Xones++
 			} else if xS[x][y]&2 == 2 {
-				twos++
+				Xtwos++
 			}
 		}
 	}
 	//fmt.Printf("\nones: %d twos: %d\n", ones, twos)
-	score += int(10*ones + twos)
+	score += int(10*Xones + Xtwos)
 
-	ones = 0
-	twos = 0
+	// tally the score
+	var Oones int
+	var Otwos int
+	
+	Oones = 0
+	Otwos = 0
 
 	for x := 0; x < 3; x++ {
 		for y := 0; y < 3; y++ {
 			//		fmt.Print(oS[x][y])
 			if oS[x][y]&1 == 1 {
-				ones++
+				Oones++
 			} else if oS[x][y]&2 == 2 {
-				twos++
+				Otwos++
 			}
 		}
 	}
 	//fmt.Printf("\nones: %d twos: %d\n", ones, twos)
-	score -= int(10*ones + twos)
+	score -= int(10*Oones + Otwos)
 
-	if score == 0 && pieces {
+	if Xones + Xtwos + Oones + Otwos == 0 && pieces {
 		return SCOREDRAW
 	}
 
@@ -311,7 +328,6 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 
 	originalAlpha := alpha
 
-	//TODO: remember to use canonical hash here
 	hash := node.hashes
 
 	lastmove := node.moves.LastMove()
@@ -321,7 +337,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 	if exists == true && !first {
 		if cache_entry.depth >= depth {
 			if cache_entry.flag == SCORE_EXACT {
-//				fmt.Println("Cache entry exact. depth ", depth)
+				// fmt.Println("Cache entry exact. depth ", depth)
 				return cache_entry, Move{NoMove, NoMove}, nil
 			} else if cache_entry.flag == SCORE_LOWER_BOUND {
 				alpha = max(alpha, cache_entry.score)
@@ -330,7 +346,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 			}
 
 			if alpha >= beta {
-//				fmt.Println("Cache entry a > b. depth ", depth)
+				// fmt.Println("Cache entry a > b. depth ", depth)
 				return cache_entry, Move{NoMove, NoMove}, nil
 			}
 		} else {
@@ -340,7 +356,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 
 
 	children := genChildren(node.board, &lastmove, node.scores)
-	//TODO: Order moves to increase performance
+	//TODO: Order moves to increase performance of pruning
 	//orderChildren(node, &children, player)
 
 	//TODO: check for won game or finished search
@@ -364,10 +380,14 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 	for _, child := range children {
 		//fmt.Printf("d%d Trying child %d (%d,%d)\n",depth, i, child.x, child.y)
 
-		// PushMove will panic if it fails (shouldn't fail)
 		node.moves.PushMove(child)
 		node.board[child.x][child.y] = player
 		node.hashes ^= zobrist_keys[0][child.x][child.y][player]
+
+		// Store subboard score to be updated
+		childSubBoard := move_to_subboard(child)
+		modscore := node.scores[childSubBoard.x/3][childSubBoard.y/3]
+		
 
 		// NOTE: alpha and beta are negated and swapped for the subcall to negamax
 		entry, _, err := negamax(node, depth-1, -beta, -alpha, notPlayer(player), false)
@@ -378,13 +398,16 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 		entry.score = -entry.score
 		ai_cache[node.hashes] = entry
 
+		//Undo all the updating that happened
 		node.hashes ^= zobrist_keys[0][child.x][child.y][player]
 		node.board[child.x][child.y] = B
+		node.scores[childSubBoard.x/3][childSubBoard.y/3] = modscore
 		node.moves.RemMove()
 
 		if entry.score > maxScore || (entry.score == maxScore && entry.depth > maxEntry.depth){
 			maxScore = entry.score
 			maxEntry = entry
+			//We only have to return the best move if at the top level negamax call
 			if first {
 				bestChild = child
 			}

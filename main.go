@@ -50,7 +50,8 @@ func NewMove() *Move {
 
 // The board is stored as a 2D array
 type Board [9][9]int
-type Scores [3][3]int
+type SubScores [3][3]int
+type Scores [3][3]float64
 
 
 type GameSettings struct {
@@ -176,6 +177,8 @@ func gameloop(s *GameSettings){
 			move = getCpuMove(s.board, &lastmove, s.curplayer, s.depth[s.curplayer-1])
 		}
 
+
+
 		if (move.x == NoMove) && (move.y == NoMove) {
 			drawBoard(s.board, move)
 			fmt.Println("Game Over!")
@@ -184,6 +187,7 @@ func gameloop(s *GameSettings){
 		}
 
 		(*s.board)[move.x][move.y] = s.curplayer
+		getSuperScores(s.board).Print()
 		drawBoard(s.board, move)
 		fmt.Printf("Hash: %x\n", hash_board(s.board))
 
@@ -227,8 +231,8 @@ func gameloop(s *GameSettings){
 // Takes a move and returns the top left corner of the board that the move was in
 func move_to_subboard(m Move) Move {
 	return Move{
-		x: (m.x%3)*3,
-		y: (m.y%3)*3,
+		x: (m.x/3)*3,
+		y: (m.y/3)*3,
 	}
 }
 
@@ -299,7 +303,7 @@ func getCpuMove(b *Board, lastmove *Move, player int, depth int) Move {
 	ai_cache = make(AICache)
 	node := new(AINode)
 	node.board = b
-	node.scores = new(Scores)
+	node.scores = getSuperScores(b)
 	node.moves = &moves
 	node.hashes = hash_board(b)
 
@@ -325,6 +329,8 @@ func getCpuMove(b *Board, lastmove *Move, player int, depth int) Move {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
+
+
 	
 	duration := time.Since(start_t).Seconds()
 
