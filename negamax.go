@@ -1,11 +1,39 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"math"
-	"sort"
 )
+
+type NegaMax struct {
+	zobrist_keys [4][9][9][3]BHash
+	ai_cache AICache
+	depth int
+}
+
+
+//AI types and structs
+type BHash uint64
+type BHashes [4]BHash
+
+type AICache map[BHash]CacheEntry
+
+type CacheEntry struct {
+	depth  int
+	score  int
+	flag   int
+	move   Move
+	player Player
+}
+
+type AINode struct {
+	board  *Board
+	moves  *MoveSlice
+	cache  AICache
+	scores *Scores
+	hashes   BHash
+}
+
 
 // Constants for the max and minimum board scores
 const (
@@ -19,30 +47,6 @@ const (
 	SCOREDRAW = 1 << 10
 )
 
-var zobrist_keys [4][9][9][3]BHash
-var ai_cache AICache = make(AICache)
-
-//AI types and structs
-type BHash uint64
-type BHashes [4]BHash
-
-type AICache map[BHash]CacheEntry
-
-type CacheEntry struct {
-	depth  int
-	score  int
-	flag   int
-	move   Move
-	player int
-}
-
-type AINode struct {
-	board  *Board
-	moves  *MoveSlice
-	cache  AICache
-	scores *Scores
-	hashes   BHash
-}
 
 /*
 *
@@ -50,7 +54,33 @@ type AINode struct {
 *
  */
 
-func playerToMul(player int) int {
+func (bot *NegaMax) getMove(board *Board, lastmove *Move, player Player) (Move, error) {
+	moves := make(MoveSlice, 0, bot.depth + 1)
+
+	bot.init_zobrist_keys()
+	//Clear the cache between moves
+	bot.ai_cache = make(AICache)
+	node := new(AINode)
+	node.board = board
+	node.scores = getSuperScores(board)
+	node.moves = &moves
+	node.hashes = bot.hash_board(board)
+
+	(*node.moves).PushMove(*lastmove)
+	
+	_, move, err := bot.negamax(node, bot.depth, SCOREMIN - 1, SCOREMAX + 1, player, true)
+
+
+	return move, err
+}
+
+func (bot *NegaMax) setDepth(depth int) {
+	bot.depth = depth
+}
+
+
+
+func playerToMul(player Player) int {
 	if player == X {
 		return 1
 	} else {
@@ -142,7 +172,7 @@ func spreadOfSlice(slice *[]float64) float64 {
 func evalSubBoard(board *Board, bx int, by int) int {
 	// fmt.Println(len(board[bx:bx+3]))
 	bcols := board[bx:bx+3]
-	b := make([][]int, 3)
+	b := make([][]Player, 3)
 	for x := 0; x < 3; x++ {
 		b[x] = bcols[x][by:by+3]
 	}
@@ -257,38 +287,38 @@ func evalSubBoard(board *Board, bx int, by int) int {
 	return score
 }
 
-func orderChildren(node *AINode, moves *MoveSlice, player int){
-	moveScoreSlice := getMoveScores(node, moves, player)
-	sort.Sort(moveScoreSlice)
-	// fmt.Println("Moves:")
-	// moveScoreSlice.Print()
-	for i, movescore := range moveScoreSlice {
-		(*moves)[i] = movescore.move
-	}
-}
+// func orderChildren(node *AINode, moves *MoveSlice, player int){
+// 	moveScoreSlice := getMoveScores(node, moves, player)
+// 	sort.Sort(moveScoreSlice)
+// 	// fmt.Println("Moves:")
+// 	// moveScoreSlice.Print()
+// 	for i, movescore := range moveScoreSlice {
+// 		(*moves)[i] = movescore.move
+// 	}
+// }
 
-func getMoveScores(node *AINode, moves *MoveSlice, player int) MoveByScore {
-	moveScoreSlice := make(MoveByScore, len(*moves))
+// func getMoveScores(node *AINode, moves *MoveSlice, player int) MoveByScore {
+// 	moveScoreSlice := make(MoveByScore, len(*moves))
 
-	for i, move := range *moves {
-		moveScoreSlice[i].move = move
-		hash := node.hashes ^ zobrist_keys[0][move.x][move.y][player]
-		cache_entry, exists := ai_cache[hash]
-		if exists {
-			moveScoreSlice[i].score = cache_entry.score
-		} else {
-			node.board[move.x][move.y] = player
-			moveScoreSlice[i].score = evalAIBoard(node)
-			node.board[move.x][move.y] = B
-			// moveScoreSlice[i].score = 0
-		}
-	}
+// 	for i, move := range *moves {
+// 		moveScoreSlice[i].move = move
+// 		hash := node.hashes ^ zobrist_keys[0][move.x][move.y][player]
+// 		cache_entry, exists := ai_cache[hash]
+// 		if exists {
+// 			moveScoreSlice[i].score = cache_entry.score
+// 		} else {
+// 			node.board[move.x][move.y] = player
+// 			moveScoreSlice[i].score = evalAIBoard(node)
+// 			node.board[move.x][move.y] = B
+// 			// moveScoreSlice[i].score = 0
+// 		}
+// 	}
 
-	return moveScoreSlice
-}
+// 	return moveScoreSlice
+// }
 
 // note: we return CacheEntry because it has all the information we need to return to a higher level of negamax
-func negamax(node *AINode, depth int, alpha int, beta int, player int, first bool) (CacheEntry, Move, error) {
+func (bot *NegaMax) negamax(node *AINode, depth int, alpha int, beta int, player Player, first bool) (CacheEntry, Move, error) {
 	//fmt.Printf("depth: %d\n", depth)
 	//fmt.Printf("Movecount: %d ", len(*node.moves))
 	//node.moves.Print()
@@ -299,7 +329,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 
 	lastmove := node.moves.LastMove()
 
-	cache_entry, exists := ai_cache[hash]
+	cache_entry, exists := bot.ai_cache[hash]
 
 	if exists == true && !first {
 		if cache_entry.depth >= depth {
@@ -317,7 +347,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 				return cache_entry, NoMove(), nil
 			}
 		} else {
-			delete(ai_cache, hash)
+			delete(bot.ai_cache, hash)
 		}
 	}
 
@@ -349,7 +379,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 
 		node.moves.PushMove(child)
 		node.board[child.x][child.y] = player
-		node.hashes ^= zobrist_keys[0][child.x][child.y][player]
+		node.hashes ^= bot.zobrist_keys[0][child.x][child.y][player]
 
 		// Store subboard score to be updated
 		childSubBoard := move_to_subboard(child)
@@ -357,16 +387,16 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 		
 
 		// NOTE: alpha and beta are negated and swapped for the subcall to negamax
-		entry, _, err := negamax(node, depth-1, -beta, -alpha, notPlayer(player), false)
+		entry, _, err := bot.negamax(node, depth-1, -beta, -alpha, notPlayer(player), false)
 		if err != nil {
 			return *new(CacheEntry), NoMove(), err
 		}
 
 		entry.score = -entry.score
-		ai_cache[node.hashes] = entry
+		bot.ai_cache[node.hashes] = entry
 
 		//Undo all the updating that happened
-		node.hashes ^= zobrist_keys[0][child.x][child.y][player]
+		node.hashes ^= bot.zobrist_keys[0][child.x][child.y][player]
 		node.board[child.x][child.y] = B
 		node.scores[childSubBoard.x/3][childSubBoard.y/3] = modscore
 		node.moves.RemMove()
@@ -401,18 +431,18 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 	return maxEntry, bestChild, nil
 }
 
-func hash_cell(board *Board, x int, y int, orientation int) BHash {
-	var player int = board[x][y]
+func (bot *NegaMax) hash_cell(board *Board, x int, y int, orientation int) BHash {
+	var player Player = board[x][y]
 	var hash BHash
-	hash = zobrist_keys[orientation][x][y][player]
+	hash = bot.zobrist_keys[orientation][x][y][player]
 	return hash
 }
 
-func hash_board(board *Board) BHash{
+func (bot *NegaMax) hash_board(board *Board) BHash{
         var hash BHash = 0
         for x := 0; x < 9; x++ {
                 for y := 0; y < 9; y++ {
-                        hash ^= hash_cell(board, x, y, 0)
+                        hash ^= bot.hash_cell(board, x, y, 0)
                 }
         }
         
@@ -437,24 +467,12 @@ func minBHash(h1 BHash, h2 BHash) BHash {
 	}
 }
 
-func init_zobrist_keys(){
-	for ori, a := range zobrist_keys{
+func (bot *NegaMax) init_zobrist_keys(){
+	for ori, a := range bot.zobrist_keys {
 		for x, b := range a {
 			for y, c := range b {
 				for player, _ := range c {
-					zobrist_keys[ori][x][y][player] = randBHash()
-				}
-			}
-		}
-	}
-}
-
-func print_zobrist_keys(){
-	for ori, a := range zobrist_keys{
-		for x, b := range a {
-			for y, c := range b {
-				for player, _ := range c {
-					fmt.Println(zobrist_keys[ori][x][y][player])
+					bot.zobrist_keys[ori][x][y][player] = randBHash()
 				}
 			}
 		}
@@ -470,4 +488,18 @@ func won(score int) bool {
 		return true
 	}
 	return false
+}
+
+func max(a int, b int) int{
+	if a > b{
+		return a
+	}
+	return b
+}
+
+func min(a int, b int) int{
+	if a < b{
+		return a
+	}
+	return b
 }

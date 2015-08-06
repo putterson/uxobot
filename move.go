@@ -26,3 +26,21 @@ func NewMove() *Move {
 		y: noMove,
 	}
 }
+
+// Takes a move and returns the top left corner of the board that the move was in
+func move_to_subboard(m Move) Move {
+	return Move{
+		x: (m.x/3)*3,
+		y: (m.y/3)*3,
+	}
+}
+
+// Takes human move notation ie. board#,cell# and returns a Move
+func move_notation(b, c int) Move {
+	b = b-1
+	c = c-1
+	return Move{
+		x: (b%3)*3 + (c%3),
+		y: (b/3)*3 + (c/3),
+	}
+}

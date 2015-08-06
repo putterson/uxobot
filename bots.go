@@ -1,5 +1,5 @@
 package main
 
 type UXOBot interface {
-	getMove(node *AINode) Move
+	getMove(board *Board, lastmove *Move, player Player) (Move, error)
 }

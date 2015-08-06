@@ -15,18 +15,12 @@ var Stdin = bufio.NewReader(os.Stdin)
 
 
 var maptochar = []string{" ", "X", "O"}
-func notPlayer(p int) int {
-	if p == X {
-		return O
-	} else {
-		return X
-	}
-}
+
 
 type GameSettings struct {
 	players [2]string
 	depth [2]int
-	curplayer int
+	curplayer Player
 	running bool
 	paused bool
 	lastmove *Move
@@ -43,8 +37,8 @@ func main() {
 // 	done := make(chan bool, 1)
 
 
-	gamerunning := false
-	var b *Board
+	
+	
 
 	settings := &GameSettings{
 		[2]string{"cpu","cpu",},
@@ -57,7 +51,6 @@ func main() {
 	}
 
 	fmt.Println("Initializing Zobrist keys...");
-	init_zobrist_keys()
 
 	prompt := flag.Bool("prompt", false, "Don't start game immediately.")
 	ai_one := flag.Int("s1", 6, "Set AI 1 strength.")
@@ -85,35 +78,13 @@ func main() {
 		var input, _ = Stdin.ReadString('\n')
 
 		if strings.Contains(input, "help"){
-			fmt.Println("There should be some help here...")
-			fmt.Println("Available commands are: start, quit, evala, evalb")
+			fmt.Println("Available commands are: start, quit")
 		} else if strings.Contains(input, "quit") || strings.Contains(input, "exit") {
 			os.Exit(0)
-		} else if strings.Contains(input, "evalb") && gamerunning {
-			var i int
-			for i = 1; i < 10; i++ {
-				move := move_to_subboard(move_notation(i, i))
-				fmt.Printf("Score of board %d is: %d\n", i, evalSubBoard(b, move.x, move.y))
-			}
-		} else if strings.Contains(input, "evala") && settings.running {
-			fmt.Printf("Score of whole board is: %d\n", evalBoard(b))
-		} else if strings.Contains(input, "clearcache") {
-			ai_cache = make(AICache)
 		} else if len(input) < 2 || strings.Contains(input, "start") && !settings.running {
 			settings.board = newBoard()
 			settings.curplayer = X
 			gameloop(settings)
-		} else if strings.Contains(input, "up") {
-			settings.depth[0]++
-			settings.depth[1]++
-			fmt.Printf("Difficulties: X: %d -- O: %d\n", settings.depth[0], settings.depth[1]);
-		} else if strings.Contains(input, "down") {
-			settings.depth[0]--
-			settings.depth[1]--
-			fmt.Printf("Difficulties: X: %d -- O: %d\n", settings.depth[0], settings.depth[1]);
-		} else if strings.Contains(input, "stats") {
-			fmt.Printf("Difficulties: X: %d -- O: %d\n", settings.depth[0], settings.depth[1]);
-			fmt.Printf("Cache size: %d", len(ai_cache))
 		} else {
 			fmt.Println("Enter a valid command or type help.")
 		}
@@ -143,24 +114,22 @@ func gameloop(s *GameSettings){
 				move = *NewMove();
 			}
 		} else {
-			move = getCpuMove(s.board, &lastmove, s.curplayer, s.depth[s.curplayer-1])
+			negabot := new(NegaMax)
+			negabot.setDepth(s.depth[s.curplayer-1])
+			move = getCpuMove(negabot, s.board, &lastmove, s.curplayer)
 		}
 
 
 
 		if move.isNoMove() {
 			drawBoard(s.board, move)
-			fmt.Println("Game Over!")
-			fmt.Printf("Hash: %x\n", hash_board(s.board))
+			fmt.Println("Draw! Game Over!")
 			return
 		}
 
 		(*s.board)[move.x][move.y] = s.curplayer
 		getSuperScores(s.board).Print()
 		drawBoard(s.board, move)
-		fmt.Printf("Hash: %x\n", hash_board(s.board))
-
-
 
 		if evalBoard(s.board) == SCOREMAX {
 			fmt.Println("X Wins the game!")
@@ -175,59 +144,6 @@ func gameloop(s *GameSettings){
 	}
 }
 
-/*
-*
-* Utility functions
-*
-*/
-
-// func move_to_pos(move Move) int {
-// 	return move.y*9 + move.x
-// }
-// 
-// func xy_to_pos(x, y int) int {
-// 	//fmt.Printf("%d", x*9+y)
-// 	return x*9 + y
-// }
-// 
-// func pos_to_move(pos int) Move {
-// 	return Move{
-// 		x: pos % 9,
-// 		y: pos / 9,
-// 	}
-// }
-
-// Takes a move and returns the top left corner of the board that the move was in
-func move_to_subboard(m Move) Move {
-	return Move{
-		x: (m.x/3)*3,
-		y: (m.y/3)*3,
-	}
-}
-
-// Takes human move notation ie. board#,cell# and returns a Move
-func move_notation(b, c int) Move {
-	b = b-1
-	c = c-1
-	return Move{
-		x: (b%3)*3 + (c%3),
-		y: (b/3)*3 + (c/3),
-	}
-}
-
-func max(a int, b int) int{
-	if a > b{
-		return a
-	}
-	return b
-}
-
-func min(a int, b int) int{
-	if a < b{
-		return a
-	}
-	return b
-}
 
 func getMove(board *Board, lastmove Move) (move Move) {
 	move = *(new(Move))
@@ -257,7 +173,9 @@ func getMove(board *Board, lastmove Move) (move Move) {
 			var i int
 			for i = 1; i < 10; i++ {
 				move = move_to_subboard(move_notation(i, i))
-				fmt.Printf("Score of board %d is: %d\n", i, evalSubBoard(board, move.x, move.y))
+				fmt.Printf("Score of board %d is: %d\n",
+					i,
+					evalSubBoard(board, move.x, move.y))
 			}
 		} else if strings.Contains(input, "evala") {
 			fmt.Printf("Score of whole board is: %d\n", evalBoard(board))
@@ -267,101 +185,27 @@ func getMove(board *Board, lastmove Move) (move Move) {
 	}
 }
 
-func getCpuMove(b *Board, lastmove *Move, player int, depth int) Move {
-	moves := make(MoveSlice, 0, depth + 1)
-	ai_cache = make(AICache)
-	node := new(AINode)
-	node.board = b
-	node.scores = getSuperScores(b)
-	node.moves = &moves
-	node.hashes = hash_board(b)
+func getCpuMove(bot UXOBot, b *Board, lastmove *Move, player Player) Move {
 
-	(*node.moves).PushMove(*lastmove)
+
+	
 	//node.moves.Print()
 	start_t := time.Now()
-	var entry CacheEntry
-	var move Move
-	var err error
-	// for cur_depth := 1; cur_depth <= depth; cur_depth++ {
-	// 	entry, move, err = negamax(node, cur_depth, SCOREMIN - 1, SCOREMAX + 1, player, true)
-	// 	if err != nil {
-	// 		fmt.Println(err.Error())
-	// 		os.Exit(1)
-	// 	}
-	// 	if time.Since(start_t).Seconds() > 10.0 {
-	// 		break
-	// 	}
-	// }
-
-	entry, move, err = negamax(node, depth, SCOREMIN - 1, SCOREMAX + 1, player, true)
+	
+	move, err := bot.getMove(b, lastmove, player)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-
-
 	
 	duration := time.Since(start_t).Seconds()
 
 
-	fmt.Printf("Move: [%d,%d] Score: %d Cache_s: %d Time (s): %.2f\n", move.x, move.y, entry.score, len(ai_cache), duration)
+	fmt.Printf("Move: [%d,%d] Time (s): %.2f\n",
+		move.x, move.y,	duration)
 	return move
 }
 
-func genHumanChildren(b *Board, lastmove Move) MoveSlice {
-	return genChildren(b, &lastmove, new(Scores))
-}
-
-func genChildren(b *Board, lastmove *Move, scores *Scores) MoveSlice {
-	var moves MoveSlice
-	if lastmove.isNoMove() {
-		return genAllChildren(b, lastmove)
-	}
-
-	moves = genBoardChildren(b, lastmove)
-	if len(moves) == 0 {
-		return genAllChildren(b, lastmove)
-	}
-	return moves
-}
-
-// Generate children for all the boards
-func genAllChildren(b *Board, lastmove *Move) MoveSlice {
-	moves := make(MoveSlice,0,81)
-	var x,y int
-
-	// FIXME: Horrible horrible hack, need to refactor this to make sense
-	fakemove := new(Move)
-	for x = 0; x < 3; x++ {
-		for y = 0; y < 3; y++ {
-			fakemove.x = x
-			fakemove.y = y
-			moves = append(moves, genBoardChildren(b, fakemove)...)
-		}
-	}
-	return moves
-}
-
-// Generate children for a specific board
-func genBoardChildren(b *Board, lastmove *Move) MoveSlice {
-	moves := make(MoveSlice, 0, 9)
-	ox := (lastmove.x%3) * 3
-	oy := (lastmove.y%3) * 3
-	won := evalSubBoard(b, ox , oy)
-	if  won == 1000 || won == -1000 {
-	//	fmt.Println("Board is won:", ox, oy)
-		return moves
-	}
-	for x := ox; x < ox+3; x++ {
-		for y := oy; y < oy+3; y++ {
-			if b[x][y] == B {
-				move := Move{x: x, y: y}
-				moves = append(moves, move)
-			}
-		}
-	}
-	return moves
-}
 
 /*
 *

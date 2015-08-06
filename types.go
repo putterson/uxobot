@@ -1,18 +1,13 @@
 package main
 
-// Constants for the piece values (blank, X, O)
-const (
-	B int = 0
-	X int = 1
-	O int = 2
-)
+
 
 type MoveScore struct {
 	move Move
 	score int
 }
 
-type Board [9][9]int
+
 type SubScores [3][3]int
 type Scores [3][3]float64
 
