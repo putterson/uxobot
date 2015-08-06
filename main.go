@@ -13,12 +13,7 @@ import (
 
 var Stdin = bufio.NewReader(os.Stdin)
 
-// Constants for the piece values (blank, X, O)
-const (
-	B int = 0
-	X int = 1
-	O int = 2
-)
+
 var maptochar = []string{" ", "X", "O"}
 func notPlayer(p int) int {
 	if p == X {
@@ -27,32 +22,6 @@ func notPlayer(p int) int {
 		return X
 	}
 }
-
-// a Move is the x,y coordinates of the move, 0 based and starting at the top left of the board
-type Move struct {
-	x int
-	y int
-}
-
-type MoveScore struct {
-	move Move
-	score int
-}
-
-const NoMove int = 254
-
-func NewMove() *Move {
-	return &Move{
-		x: NoMove,
-		y: NoMove,
-	}
-}
-
-// The board is stored as a 2D array
-type Board [9][9]int
-type SubScores [3][3]int
-type Scores [3][3]float64
-
 
 type GameSettings struct {
 	players [2]string
@@ -179,7 +148,7 @@ func gameloop(s *GameSettings){
 
 
 
-		if (move.x == NoMove) && (move.y == NoMove) {
+		if move.isNoMove() {
 			drawBoard(s.board, move)
 			fmt.Println("Game Over!")
 			fmt.Printf("Hash: %x\n", hash_board(s.board))
@@ -345,7 +314,7 @@ func genHumanChildren(b *Board, lastmove Move) MoveSlice {
 
 func genChildren(b *Board, lastmove *Move, scores *Scores) MoveSlice {
 	var moves MoveSlice
-	if (lastmove.x == NoMove) && (lastmove.y == NoMove) {
+	if lastmove.isNoMove() {
 		return genAllChildren(b, lastmove)
 	}
 

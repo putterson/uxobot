@@ -19,39 +19,6 @@ const (
 	SCOREDRAW = 1 << 10
 )
 
-var wins = [][]int{
-	{1, 1, 1, 0, 0, 0, 0, 0, 0},
-	{0, 0, 0, 1, 1, 1, 0, 0, 0},
-	{0, 0, 0, 0, 0, 0, 1, 1, 1},
-	{1, 0, 0, 0, 1, 0, 0, 0, 1},
-	{0, 0, 1, 0, 1, 0, 1, 0, 0},
-	{1, 0, 0, 1, 0, 0, 1, 0, 0},
-	{0, 1, 0, 0, 1, 0, 0, 1, 0},
-	{0, 0, 1, 0, 0, 1, 0, 0, 1},
-}
-
-type Line struct {
-	x1 int
-	x2 int
-	x3 int
-	y1 int
-	y2 int
-	y3 int
-}
-
-var winlines = []Line{
-	Line{x1: 0, x2: 0, x3: 0, y1: 0, y2: 1, y3: 2},
-	Line{x1: 1, x2: 1, x3: 1, y1: 0, y2: 1, y3: 2},
-	Line{x1: 2, x2: 2, x3: 2, y1: 0, y2: 1, y3: 2},
-
-	Line{x1: 0, x2: 1, x3: 2, y1: 0, y2: 0, y3: 0},
-	Line{x1: 0, x2: 1, x3: 2, y1: 1, y2: 1, y3: 1},
-	Line{x1: 0, x2: 1, x3: 2, y1: 2, y2: 2, y3: 2},
-
-	Line{x1: 0, x2: 1, x3: 2, y1: 0, y2: 1, y3: 2},
-	Line{x1: 0, x2: 1, x3: 2, y1: 2, y2: 1, y3: 0},
-}
-
 var zobrist_keys [4][9][9][3]BHash
 var ai_cache AICache = make(AICache)
 
@@ -105,7 +72,7 @@ func evalAIBoard(node *AINode) int {
 	// If there was a last move we only need to update one of the subboard scores (which the move was made in)
 	// return evalSuperBoard(getSuperScores(node.board))
 	
-	if (*node.moves).LastMove().x != NoMove {
+	if !(*node.moves).LastMove().isNoMove() {
 		subboard := move_to_subboard((*node.moves).LastMove())
 		node.scores[subboard.x/3][subboard.y/3] = normSubScore(evalSubBoard(node.board, subboard.x, subboard.y))
 	}
@@ -338,7 +305,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 		if cache_entry.depth >= depth {
 			if cache_entry.flag == SCORE_EXACT {
 				// fmt.Println("Cache entry exact. depth ", depth)
-				return cache_entry, Move{NoMove, NoMove}, nil
+				return cache_entry, NoMove(), nil
 			} else if cache_entry.flag == SCORE_LOWER_BOUND {
 				alpha = max(alpha, cache_entry.score)
 			} else if cache_entry.flag == SCORE_UPPER_BOUND {
@@ -347,7 +314,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 
 			if alpha >= beta {
 				// fmt.Println("Cache entry a > b. depth ", depth)
-				return cache_entry, Move{NoMove, NoMove}, nil
+				return cache_entry, NoMove(), nil
 			}
 		} else {
 			delete(ai_cache, hash)
@@ -370,13 +337,13 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 			score:  playerToMul(player) * curScore,
 			move:   lastmove,
 			player: player,
-		}, Move{NoMove, NoMove}, nil
+		}, NoMove(), nil
 	}
 
 	maxScore := SCOREMIN - 1
 	var maxEntry CacheEntry
 
-	bestChild := Move{NoMove, NoMove}
+	bestChild := NoMove()
 	for _, child := range children {
 		//fmt.Printf("d%d Trying child %d (%d,%d)\n",depth, i, child.x, child.y)
 
@@ -392,7 +359,7 @@ func negamax(node *AINode, depth int, alpha int, beta int, player int, first boo
 		// NOTE: alpha and beta are negated and swapped for the subcall to negamax
 		entry, _, err := negamax(node, depth-1, -beta, -alpha, notPlayer(player), false)
 		if err != nil {
-			return *new(CacheEntry), Move{NoMove, NoMove}, err
+			return *new(CacheEntry), NoMove(), err
 		}
 
 		entry.score = -entry.score
