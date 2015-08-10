@@ -2,11 +2,15 @@ package main
 
 type Board [9][9]Player
 
-func genHumanChildren(b *Board, lastmove Move) MoveSlice {
-	return genChildren(b, &lastmove, new(Scores))
+func (b *Board) applyMove(move *Move, player Player) {
+	(*b)[move.x][move.y] = player
 }
 
-func genChildren(b *Board, lastmove *Move, scores *Scores) MoveSlice {
+func genHumanChildren(b *Board, lastmove Move) MoveSlice {
+	return genChildren(b, &lastmove)
+}
+
+func genChildren(b *Board, lastmove *Move) MoveSlice {
 	var moves MoveSlice
 	if lastmove.isNoMove() {
 		return genAllChildren(b, lastmove)

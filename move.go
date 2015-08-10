@@ -1,5 +1,6 @@
 package main
 
+import "fmt"
 // a Move is the x,y coordinates of the move, 0 based and starting at the top left of the board
 type Move struct {
 	x int
@@ -43,4 +44,8 @@ func move_notation(b, c int) Move {
 		x: (b%3)*3 + (c%3),
 		y: (b/3)*3 + (c/3),
 	}
+}
+
+func (m *Move) Print() {
+	fmt.Printf("[%d, %d]\n", m.x, m.y)
 }

@@ -50,8 +50,6 @@ func main() {
 		new(Board),
 	}
 
-	fmt.Println("Initializing Zobrist keys...");
-
 	prompt := flag.Bool("prompt", false, "Don't start game immediately.")
 	ai_one := flag.Int("s1", 6, "Set AI 1 strength.")
 	ai_two := flag.Int("s2", 8, "Set AI 2 strength.")
@@ -109,14 +107,18 @@ func gameloop(s *GameSettings){
 
 		if s.players[s.curplayer-1] == "human" {
 			if len(genHumanChildren(s.board, lastmove)) > 0 {
-				move = getMove(s.board, lastmove)
+				move = getHumanMove(s.board, lastmove)
 			} else {
 				move = *NewMove();
 			}
-		} else {
+		} else if s.players[s.curplayer-1] == "negamax" {
 			negabot := new(NegaMax)
 			negabot.setDepth(s.depth[s.curplayer-1])
 			move = getCpuMove(negabot, s.board, &lastmove, s.curplayer)
+		} else if s.players[s.curplayer-1] == "montecarlo" {
+			montebot := NewMonteCarlo(s.board, &lastmove, 1.0)
+			fmt.Println("Created new montebot")
+			move = getCpuMove(montebot, s.board, &lastmove, s.curplayer)
 		}
 
 
@@ -145,7 +147,7 @@ func gameloop(s *GameSettings){
 }
 
 
-func getMove(board *Board, lastmove Move) (move Move) {
+func getHumanMove(board *Board, lastmove Move) (move Move) {
 	move = *(new(Move))
 	var b, c int
 	for {
@@ -192,7 +194,7 @@ func getCpuMove(bot UXOBot, b *Board, lastmove *Move, player Player) Move {
 	//node.moves.Print()
 	start_t := time.Now()
 	
-	move, err := bot.getMove(b, lastmove, player)
+	move, err := bot.getMove(*b, *lastmove, player)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
