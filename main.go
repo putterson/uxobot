@@ -116,7 +116,7 @@ func gameloop(s *GameSettings){
 			negabot.setDepth(s.depth[s.curplayer-1])
 			move = getCpuMove(negabot, s.board, &lastmove, s.curplayer)
 		} else if s.players[s.curplayer-1] == "montecarlo" {
-			montebot := NewMonteCarlo(s.board, &lastmove, 1.0)
+			montebot := NewMonteCarlo(s.board, &lastmove, float64(s.depth[s.curplayer-1])/1000.0)
 			fmt.Println("Created new montebot")
 			move = getCpuMove(montebot, s.board, &lastmove, s.curplayer)
 		}
@@ -256,5 +256,3 @@ func colourString(c string) string{
 //	return c
 	return "\x1b[31;1m" + c + "\x1b[0m"
 }
-
-
