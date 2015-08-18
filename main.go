@@ -19,7 +19,7 @@ var maptochar = []string{" ", "X", "O"}
 
 type GameSettings struct {
 	players [2]string
-	depth [2]int
+	depth [2]float64
 	curplayer Player
 	running bool
 	paused bool
@@ -41,8 +41,8 @@ func main() {
 	
 
 	settings := &GameSettings{
-		[2]string{"cpu","cpu",},
-		[2]int{8,9,},
+		[2]string{"montecarlo","negamax",},
+		[2]float64{1,9,},
 		X,
 		false,
 		false,
@@ -51,11 +51,11 @@ func main() {
 	}
 
 	prompt := flag.Bool("prompt", false, "Don't start game immediately.")
-	ai_one := flag.Int("s1", 6, "Set AI 1 strength.")
-	ai_two := flag.Int("s2", 8, "Set AI 2 strength.")
+	ai_one := flag.Float64("s1", 2, "Set AI 1 strength.")
+	ai_two := flag.Float64("s2", 2, "Set AI 2 strength.")
 
-	player_one := flag.String("p1", "cpu", "Set player 1 to cpu or human.")
-	player_two := flag.String("p2", "cpu", "Set player 2 to cpu or human.")
+	player_one := flag.String("p1", "montecarlo", "Set player 1 to cpu or human.")
+	player_two := flag.String("p2", "negamax", "Set player 2 to cpu or human.")
 
 	flag.Parse()
 
@@ -105,20 +105,20 @@ func gameloop(s *GameSettings){
 	var move Move
 	for {
 
-		if s.players[s.curplayer-1] == "human" {
+		if s.players[s.curplayer-1] == "negamax" {
+			negabot := new(NegaMax)
+			negabot.setDepth(int(s.depth[s.curplayer-1]))
+			move = getCpuMove(negabot, s.board, &lastmove, s.curplayer)
+		} else if s.players[s.curplayer-1] == "montecarlo" {
+			montebot := NewMonteCarlo(s.board, &lastmove, s.depth[s.curplayer-1])
+			fmt.Println("Created new montebot")
+			move = getCpuMove(montebot, s.board, &lastmove, s.curplayer)
+		} else {
 			if len(genHumanChildren(s.board, lastmove)) > 0 {
 				move = getHumanMove(s.board, lastmove)
 			} else {
 				move = *NewMove();
 			}
-		} else if s.players[s.curplayer-1] == "negamax" {
-			negabot := new(NegaMax)
-			negabot.setDepth(s.depth[s.curplayer-1])
-			move = getCpuMove(negabot, s.board, &lastmove, s.curplayer)
-		} else if s.players[s.curplayer-1] == "montecarlo" {
-			montebot := NewMonteCarlo(s.board, &lastmove, float64(s.depth[s.curplayer-1])/1000.0)
-			fmt.Println("Created new montebot")
-			move = getCpuMove(montebot, s.board, &lastmove, s.curplayer)
 		}
 
 
