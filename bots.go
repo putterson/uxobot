@@ -4,6 +4,7 @@ import "math"
 
 type UXOBot interface {
 	getMove(board Board, lastmove Move, player Player) (Move, error)
+	makeMove(move Move) error
 }
 
 // Constants for the max and minimum board scores

@@ -40,6 +40,10 @@ type AINode struct {
 *
  */
 
+func (bot *NegaMax) makeMove(move Move) error {
+	return nil
+}
+
 func (bot *NegaMax) getMove(board Board, lastmove Move, player Player) (Move, error) {
 	moves := make(MoveSlice, 0, bot.depth + 1)
 

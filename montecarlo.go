@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"time"
+	"errors"
 )
 
 type MonteCarlo struct {
@@ -12,10 +13,10 @@ type MonteCarlo struct {
 	root    *TreeNode
 }
 
-func NewMonteCarlo(board *Board, lastmove *Move, timeout float64) *MonteCarlo {
+func NewMonteCarlo(timeout float64) *MonteCarlo {
 	return &MonteCarlo{
 		timeout: timeout,
-		root:    NewTreeNode(board, lastmove),
+		root:    nil,
 	}
 }
 
@@ -43,7 +44,7 @@ func (t *TreeNode) getMove(n int) Move {
 
 func NewTreeNode(board *Board, lastmove *Move) *TreeNode {
 	return &TreeNode{
-		outcomes:   1,
+		outcomes:   0,
 		wincomes:   0,
 		childMoves: genChildren(board, lastmove),
 		childNodes: make(NodeChildren),
@@ -57,17 +58,38 @@ func getLastNode(nodePath []*TreeNode) *TreeNode {
 //The tuning value for UCB algorithm
 const C = math.Sqrt2
 
-func (m MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, error) {
+func (m *MonteCarlo) makeMove(move Move) error {
+	if m.root == nil {
+		return errors.New("root was nil")
+	}
+	node, ok := m.root.childNodes[move]
+	if ok {
+		fmt.Println("Found childNode")
+		m.root = node
+		return nil
+	} else {
+		return errors.New("Move was not available")
+	}
+}
+
+func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, error) {
+	if m.root == nil {
+		fmt.Println("getMove with nil root")
+		m.root = NewTreeNode(&board, &lastmove)
+	}
+	
 	start_t := time.Now()
 
+	//Save the original board and player
 	origBoard := board
+	origPlayer := player
+	
 	count := 0
 
 	for time.Since(start_t).Seconds() < m.timeout {
-		//player
-		count += 1
+		count++
 		board := origBoard
-		origPlayer := player
+		player := origPlayer
 
 		var nodePath []*TreeNode
 		nodePath = make([]*TreeNode, 0, 81)
@@ -91,7 +113,7 @@ func (m MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, er
 			for _, m := range lastNode.childMoves {
 				ratio := float64(0.0)
 				nextNode, ok := lastNode.childNodes[m]
-				nextOutcomes := 1.0
+				nextOutcomes := 0.0
 				if ok {
 					ratio = float64(nextNode.wincomes) / float64(nextNode.outcomes)
 					nextOutcomes = float64(nextNode.outcomes)
@@ -125,61 +147,63 @@ func (m MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, er
 
 		//drawBoard(&board, move)
 	
-		
-		//fmt.Printf("NodePath length: %d\n", len(nodePath))
-		// //Extension phase
-		// fmt.Println("Extension phase")
-		// size_moves := lastNode.nNextMoves()
-		// idx_rand_move := rand.Intn(size_moves)
-		// move = lastNode.getMove(idx_rand_move)
-		// board.applyMove(&move, player)
-		// // move.Print()
-		// nextNode := NewTreeNode(&board, &move)
-		// lastNode.childNodes[move] = nextNode
-
-		// fmt.Printf("Length of childNodes: %d\n",len(getLastNode(nodePath).childNodes))
-
-		//player = notPlayer(player)
-		//nodePath = append(nodePath, nextNode)
-
-		//getLastNode(nodePath).childMoves.Print()
-
 		//Simulation phase
 		//fmt.Println("Simulation phase")
 		//make random moves until the game is over
 
 		simBoard := board
 		score := boardScore(simBoard, move, player)
-
+		simdepth := 0
 		for !finished(score) {
-			moves := genChildren(&board, &move)
+			simdepth++
+			moves := genChildren(&simBoard, &move)
 			size_moves := len(moves)
+
+			if size_moves == 0 || simdepth > 81 {
+				drawBoard(&simBoard, move)
+				fmt.Printf("Error in simulation| simdepth: %d | size_moves: %d\n", simdepth, size_moves)
+				return NoMove(), errors.New("")
+			}
+			
 			rnd_move_index := rand.Intn(size_moves)
 			move = moves[rnd_move_index]
 
 			simBoard.applyMove(&move, player)
 
 			//make random move on board
+			
 			score = boardScore(simBoard, move, player)
-
 			player = notPlayer(player)
 		}
 
-		//drawBoard(&simBoard, move)
 
 
-		player = origPlayer
+		scorePlayer := notPlayer(player)
 
 		//Backpropogation
 		//fmt.Println("Backpropogation phase")
-		for _, node := range nodePath {
-			node.outcomes += 1
-			node.wincomes += (1 & score) & montePlayerToMul(player)
-			player = notPlayer(player)
+		if score == 0 {
+			for _, node := range nodePath {
+				node.outcomes += 1
+			}
+		} else {
+			if scorePlayer != origPlayer {
+				score = -score
+			}
+
+			if score < 0 {
+				score = 0
+			}
+			
+			for _, node := range nodePath {
+				node.outcomes += 1
+				node.wincomes += score
+				score = score ^ 1
+			}
 		}
 		//fmt.Println("Finished Backprop")
 	}
-	fmt.Println("Ran out of time")
+	//fmt.Println("Ran out of time")
 
 	//Find optimal toplevel move
 	var visits, newVisits int
@@ -187,7 +211,7 @@ func (m MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, er
 	var optimalNode *TreeNode
 	optimalMove = NoMove()
 
-	fmt.Println("Eval final move")
+	//fmt.Println("Eval final move")
 	//Final move should be the move with the most visits, not the best ratio
 	for move, node := range m.root.childNodes {
 
@@ -198,9 +222,11 @@ func (m MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, er
 			optimalNode = node
 			visits = newVisits
 		}
+		ratio := float64(node.wincomes) / float64(node.outcomes)
+		fmt.Printf("%d move had ratio of %d / %d = %.2f\nout of %d rounds\n", move, node.wincomes, node.outcomes, ratio, count)
 	}
 	ratio := float64(optimalNode.wincomes) / float64(optimalNode.outcomes)
-	fmt.Printf("optimal move had ratio of %d / %d = %.2f\nout of %d rounds", optimalNode.wincomes, optimalNode.outcomes, ratio, count)
+	fmt.Printf("optimal move had ratio of %d / %d = %.2f\nout of %d rounds\n", optimalNode.wincomes, optimalNode.outcomes, ratio, count)
 	return optimalMove, nil
 }
 
@@ -224,8 +250,8 @@ func boardScore(board Board, lastmove Move, player Player) int {
 	}
 }
 
-func montePlayerToMul(player Player) int {
-	if player == X {
+func montePlayerToMul(origPlayer Player, player Player) int {
+	if player == origPlayer {
 		return 1
 	} else {
 		return 0

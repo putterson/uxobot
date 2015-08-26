@@ -99,20 +99,30 @@ func newBoard() *Board {
 	return b
 }
 
+func makeBot(bottype string, depth float64) UXOBot {
+	if bottype == "negamax" {
+		negabot := new(NegaMax)
+		negabot.setDepth(int(depth))
+		return negabot
+	} else if bottype == "montecarlo" {
+		return NewMonteCarlo(depth)
+	} else {
+		return nil
+	}
+}
 
 func gameloop(s *GameSettings){
 	lastmove := *NewMove()
 	var move Move
+	bots := [2]UXOBot{
+		makeBot(s.players[0], s.depth[0]),
+		makeBot(s.players[1], s.depth[1]),
+	}
+	
 	for {
 
-		if s.players[s.curplayer-1] == "negamax" {
-			negabot := new(NegaMax)
-			negabot.setDepth(int(s.depth[s.curplayer-1]))
-			move = getCpuMove(negabot, s.board, &lastmove, s.curplayer)
-		} else if s.players[s.curplayer-1] == "montecarlo" {
-			montebot := NewMonteCarlo(s.board, &lastmove, s.depth[s.curplayer-1])
-			fmt.Println("Created new montebot")
-			move = getCpuMove(montebot, s.board, &lastmove, s.curplayer)
+		if bots[s.curplayer-1] != nil {
+			move = getCpuMove(bots[s.curplayer-1], s.board, &lastmove, s.curplayer)
 		} else {
 			if len(genHumanChildren(s.board, lastmove)) > 0 {
 				move = getHumanMove(s.board, lastmove)
@@ -127,6 +137,12 @@ func gameloop(s *GameSettings){
 			drawBoard(s.board, move)
 			fmt.Println("Draw! Game Over!")
 			return
+		}
+
+		for _, bot := range(bots){
+			if bot != nil {
+				fmt.Println(bot.makeMove(move))
+			}
 		}
 
 		(*s.board)[move.x][move.y] = s.curplayer
