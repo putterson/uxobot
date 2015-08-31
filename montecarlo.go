@@ -166,7 +166,7 @@ func (m *MonteCarlo) selection(board Board, player Player) (Board, Player, Move,
 	//fmt.Println("Selection phase")
 	//While the node has visited children move to a selected child
 	var lastNode *TreeNode
-	for true {
+	for !finished(boardScore(board,move)) {
 		lastNode = getLastNode(nodePath);
 		optimalUCB := math.Inf(-1)
 		var optimalNode *TreeNode
@@ -199,6 +199,7 @@ func (m *MonteCarlo) selection(board Board, player Player) (Board, Player, Move,
 
 		if optimalMove == NoMove() {
 			fmt.Printf("Bad length of childMoves? %d\n", len(lastNode.childMoves))
+			drawBoard(&board, move)
 			fmt.Println("Failed to find optimalMove during selection")
 		}
 		
