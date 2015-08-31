@@ -56,7 +56,7 @@ func getLastNode(nodePath []*TreeNode) *TreeNode {
 }
 
 //The tuning value for UCB algorithm
-const C = math.Sqrt2
+const C = 1.1 //math.Sqrt2
 
 func (m *MonteCarlo) makeMove(move Move) error {
 	if m.root == nil {
@@ -73,7 +73,7 @@ func (m *MonteCarlo) makeMove(move Move) error {
 }
 
 func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, error) {
-	if true || m.root == nil {
+	if m.root == nil {
 		fmt.Println("getMove with nil root")
 		m.root = NewTreeNode(&board, &lastmove)
 	}
@@ -86,7 +86,7 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 	
 	count := 0
 
-	for time.Since(start_t).Seconds() < m.timeout {
+	for (time.Since(start_t).Seconds() < m.timeout) {
 		count++
 		player := origPlayer
 
@@ -120,10 +120,10 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 			visits = newVisits
 		}
 		ratio := float64(node.wincomes[player-1]) / float64(node.outcomes)
-		fmt.Printf("%d move had ratio of %d / %d = %.2f\nout of %d rounds\n", move, node.wincomes, node.outcomes, ratio, count)
+		fmt.Printf("%d move had ratio of %d / %d = %.2f\n", move, node.wincomes, node.outcomes, ratio)
 	}
 	ratio := float64(optimalNode.wincomes[player-1]) / float64(optimalNode.outcomes)
-	fmt.Printf("optimal move had ratio of %d / %d = %.2f\nout of %d rounds\n", optimalNode.wincomes, optimalNode.outcomes, ratio, count)
+	fmt.Printf("optimal move %d had ratio of %d / %d = %.2f\nout of %d rounds\n", optimalMove, optimalNode.wincomes, optimalNode.outcomes, ratio, count)
 	return optimalMove, nil
 }
 
@@ -159,6 +159,7 @@ func (m *MonteCarlo) selection(board Board, player Player) (Board, Player, Move,
 	nodePath = append(nodePath, m.root)
 
 	var move Move
+	nomove := NoMove()
 	move = NoMove()
 
 	//Selection phase
@@ -167,10 +168,10 @@ func (m *MonteCarlo) selection(board Board, player Player) (Board, Player, Move,
 	var lastNode *TreeNode
 	for true {
 		lastNode = getLastNode(nodePath);
-		var optimalUCB float64
+		optimalUCB := math.Inf(-1)
 		var optimalNode *TreeNode
 		var optimalOk bool
-		var optimalMove Move
+		optimalMove := NoMove()
 
 		//Find the largest UCB value for all the moves
 		for _, m := range lastNode.childMoves {
@@ -186,14 +187,19 @@ func (m *MonteCarlo) selection(board Board, player Player) (Board, Player, Move,
 
 			// fmt.Println(ucbval)
 
-			//If the move is better for us
-			if ucbval > optimalUCB {
+			//If the move is better for us (or there hasn't been an optimal move yet)
+			if ucbval >= optimalUCB || optimalMove == nomove {
 				optimalUCB = ucbval
 				optimalNode = nextNode
 				optimalMove = m
 				optimalOk = ok
 			}
 
+		}
+
+		if optimalMove == NoMove() {
+			fmt.Printf("Bad length of childMoves? %d\n", len(lastNode.childMoves))
+			fmt.Println("Failed to find optimalMove during selection")
 		}
 		
 		

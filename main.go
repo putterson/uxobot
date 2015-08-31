@@ -141,7 +141,10 @@ func gameloop(s *GameSettings){
 
 		for _, bot := range(bots){
 			if bot != nil {
-				fmt.Println(bot.makeMove(move))
+				err := bot.makeMove(move)
+				if err != nil {
+					fmt.Println(err)
+				}
 			}
 		}
 
