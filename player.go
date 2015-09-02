@@ -1,7 +1,7 @@
 package main
 
 // Constants for the piece values (blank, X, O)
-type Player int
+type Player uint8
 
 const (
 	B Player = 0

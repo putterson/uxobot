@@ -9,6 +9,9 @@ import (
 	"flag"
 	//"errors"
 	"time"
+	"runtime/pprof"
+	"runtime"
+	"log"
 )
 
 var Stdin = bufio.NewReader(os.Stdin)
@@ -56,9 +59,21 @@ func main() {
 
 	player_one := flag.String("p1", "montecarlo", "Set player 1 to cpu or human.")
 	player_two := flag.String("p2", "negamax", "Set player 2 to cpu or human.")
+	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 	flag.Parse()
 
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+			os.Exit(1)
+		}
+		runtime.SetCPUProfileRate(1000)
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+	
 	if !(*prompt) {
 		settings.players[0] = *player_one
 		settings.players[1] = *player_two

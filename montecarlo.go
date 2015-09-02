@@ -56,7 +56,7 @@ func getLastNode(nodePath []*TreeNode) *TreeNode {
 }
 
 //The tuning value for UCB algorithm
-const C = 1.1 //math.Sqrt2
+const C = math.Sqrt2
 
 func (m *MonteCarlo) makeMove(move Move) error {
 	if m.root == nil {
@@ -131,11 +131,24 @@ func finished(score int) bool {
 	return score != 0
 }
 
-func boardScore(board Board, lastmove Move) int {
-	score := scoreBoard(&board)
+func boardScore(board *Board, lastmove *Move) int {
+	score := scoreBoard(board)
 
 	if score == 0 {
-		if len(genChildren(&board, &lastmove)) == 0 {
+		if len(genChildren(board, lastmove)) == 0 {
+			return -2
+		} else {
+			return 0
+		}
+	} else {
+		return score
+	}
+}
+
+func boardPartialScore(subscores *SubScores, board *Board, lastmove *Move) int {
+	score := scorePartialBoard(subscores, board, lastmove)
+	if score == 0 {
+		if len(*genPartialChildren(subscores, board, lastmove)) == 0 {
 			return -2
 		} else {
 			return 0
@@ -166,7 +179,7 @@ func (m *MonteCarlo) selection(board Board, player Player) (Board, Player, Move,
 	//fmt.Println("Selection phase")
 	//While the node has visited children move to a selected child
 	var lastNode *TreeNode
-	for !finished(boardScore(board,move)) {
+	for !finished(boardScore(&board,&move)) {
 		lastNode = getLastNode(nodePath);
 		optimalUCB := math.Inf(-1)
 		var optimalNode *TreeNode
@@ -229,36 +242,40 @@ func (m *MonteCarlo) simulate(board Board, player Player, move Move) int {
 	//make random moves until the game is over
 
 	simBoard := board
-	score := boardScore(simBoard, move)
+	score := boardScore(&simBoard, &move)
+	subscores := subScoresBoard(&simBoard)
 
 	for !finished(score) {
-		moves := genChildren(&simBoard, &move)
-		size_moves := len(moves)
+		moves := genPartialChildren(subscores, &simBoard, &move)
+		size_moves := len(*moves)
 
 		if size_moves == 0 {
 			drawBoard(&simBoard, move)
 			fmt.Printf("Error in simulation | score: %d | size_moves: %d\n",score, size_moves)
+			fmt.Printf("%d",subscores)
 			return 0
 		}
 		
 		//Check for one move away wins
-		for _, p_move := range moves {
+		for _, p_move := range *moves {
 			simBoard.applyMove(&p_move, player)
-			score = boardScore(simBoard, p_move)
+			oldscores := *subscores
+			score = boardPartialScore(subscores, &simBoard, &p_move)
 			if (score & 1) == 1 {
 				//fmt.Printf("Found one move away win score: %d\n", score )
 				//drawBoard(&board, p_move)
 				return score
 			}
 			simBoard.clearMove(&p_move)
+			subscores = &oldscores
 		}
 
 		//otherwise make random move on board
 		rnd_move_index := rand.Intn(size_moves)
-		move = moves[rnd_move_index]
+		move = (*moves)[rnd_move_index]
 		simBoard.applyMove(&move, player)
 		
-		score = boardScore(simBoard, move)
+		score = boardPartialScore(subscores, &simBoard, &move)
 
 		player = notPlayer(player)
 	}
@@ -302,6 +319,25 @@ func scoreBoard(board *Board) int {
 	return scoreSuperBoard(subscores)
 }
 
+func subScoresBoard(board *Board) *SubScores {
+	subscores := new(SubScores)
+
+	for bx := 0; bx < 3; bx++ {
+		for by := 0; by < 3; by++ {
+			subscores[bx][by] = scoreSubBoard(board, bx*3, by*3)
+		}
+	}
+
+	return subscores
+}
+
+func scorePartialBoard(b *SubScores, board *Board, lastmove *Move) int {
+	subboard := move_to_subboard(*lastmove)
+	b[subboard.x/3][subboard.y/3] = scoreSubBoard(board, subboard.x, subboard.y)
+	
+	return scoreSuperBoard(b)	
+}
+
 func scoreSuperBoard(b *SubScores) int {
 	for _, l := range winlines {
 		s := b[l.x1][l.y1] + b[l.x2][l.y2] + b[l.x3][l.y3]
@@ -316,27 +352,30 @@ func scoreSuperBoard(b *SubScores) int {
 	return 0
 }
 
-func scoreSubBoard(board *Board, bx int, by int) int {
+func scoreSubBoard(b *Board, bx int, by int) int {
 	// fmt.Println(len(board[bx:bx+3]))
-	bcols := board[bx:bx+3]
-	b := make([][]Player, 3)
-	for x := 0; x < 3; x++ {
-		b[x] = bcols[x][by:by+3]
-	}
+	// bcols := board[bx:bx+3]
+	// b := make([][]Player, 3)
+	// for x := 0; x < 3; x++ {
+	// 	b[x] = bcols[x][by:by+3]
+	// }
 
 	//fmt.Println("Entering evalSubBoard at location",bx,by)
 	for _, l := range winlines {
-		n := b[l.x1][l.y1] | b[l.x2][l.y2] | b[l.x3][l.y3]
-		s := b[l.x1][l.y1] + b[l.x2][l.y2] + b[l.x3][l.y3]
+		n := b[l.x1+bx][l.y1+by] | b[l.x2+bx][l.y2+by] | b[l.x3+bx][l.y3+by]
+		s := b[l.x1+bx][l.y1+by] + b[l.x2+bx][l.y2+by] + b[l.x3+bx][l.y3+by]
 
-		// if the whole line is one player
-		if s == 3*n {
-			if s == 3 {
-				return 1
-			} else if s == 6 {
-				return -1
-			}
+		if s == 0 || n == 3 {
+			continue
 		}
+		
+		// if the whole line is one player
+		if s == 3 {
+			return 1
+		} else if s == 6 {
+			return -1
+		}
+
 	}
 
 	return 0

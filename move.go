@@ -36,6 +36,13 @@ func move_to_subboard(m Move) Move {
 	}
 }
 
+func move_to_subscore(m Move) Move {
+	return Move{
+		x: (m.x/3),
+		y: (m.y/3),
+	}
+}
+
 // Takes human move notation ie. board#,cell# and returns a Move
 func move_notation(b, c int) Move {
 	b = b-1
