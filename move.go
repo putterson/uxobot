@@ -9,6 +9,11 @@ type Move struct {
 
 const noMove int = 254
 
+func (m *BitMove) toMove() Move {
+	return move_notation(int(m.s)+1, int(m.c)+1)
+
+}
+
 func (m Move) isNoMove() bool {
 	if m.x == noMove || m.y == noMove {
 		return true

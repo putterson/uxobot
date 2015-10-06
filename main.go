@@ -136,16 +136,15 @@ func gameloop(s *GameSettings){
 	
 	for {
 
-		if bots[s.curplayer-1] != nil {
-			move = getCpuMove(bots[s.curplayer-1], s.board, &lastmove, s.curplayer)
-		} else {
-			if len(genHumanChildren(s.board, lastmove)) > 0 {
-				move = getHumanMove(s.board, lastmove)
+		move = NoMove()
+		if len(genHumanChildren(s.board, lastmove)) > 0 {
+			if bots[s.curplayer-1] != nil {
+				move = getCpuMove(bots[s.curplayer-1], s.board, &lastmove, s.curplayer)
 			} else {
-				move = *NewMove();
+				move = getHumanMove(s.board, lastmove)
 			}
-		}
 
+		}
 
 
 		if move.isNoMove() {
@@ -163,7 +162,8 @@ func gameloop(s *GameSettings){
 			}
 		}
 
-		(*s.board)[move.x][move.y] = s.curplayer
+		s.board.applyMove(&move, s.curplayer)
+		// (*s.board)[move.x][move.y] = s.curplayer
 		getSuperScores(s.board).Print()
 		drawBoard(s.board, move)
 

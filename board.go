@@ -4,7 +4,23 @@ package main
 
 type Board [9][9]Player
 
+func (b *BitBoard) toBoard() *Board {
+	newboard := new(Board)
+
+	for s := uint8(0); s < 9; s++ {
+		for c := uint8(0); c < 9; c++ {
+			move := move_notation(int(s+1), int(c+1))
+			newboard[move.x][move.y] = b.getMove(&BitMove{s: s, c: c})
+		}
+	}
+
+	return newboard
+}
+
 func (b *Board) applyMove(move *Move, player Player) {
+	if (*b)[move.x][move.y] != B {
+		panic("Bad move")
+	}
 	(*b)[move.x][move.y] = player
 }
 
@@ -122,4 +138,34 @@ func genPartialAllChildren(subscores *SubScores, b *Board, lastmove *Move) *Move
 		}
 	}
 	return &moves
+}
+
+
+func scoreSubBoard(b *Board, bx int, by int) int {
+	// fmt.Println(len(board[bx:bx+3]))
+	// bcols := board[bx:bx+3]
+	// b := make([][]Player, 3)
+	// for x := 0; x < 3; x++ {
+	// 	b[x] = bcols[x][by:by+3]
+	// }
+
+	//fmt.Println("Entering evalSubBoard at location",bx,by)
+	for _, l := range winlines {
+		n := b[l.x1+bx][l.y1+by] | b[l.x2+bx][l.y2+by] | b[l.x3+bx][l.y3+by]
+		s := b[l.x1+bx][l.y1+by] + b[l.x2+bx][l.y2+by] + b[l.x3+bx][l.y3+by]
+
+		if s == 0 || n == 3 {
+			continue
+		}
+		
+		// if the whole line is one player
+		if s == 3 {
+			return 1
+		} else if s == 6 {
+			return -1
+		}
+
+	}
+
+	return 0
 }
