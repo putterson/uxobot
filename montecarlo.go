@@ -44,13 +44,13 @@ func (t *TreeNode) getMove(n int) BitMove {
 }
 
 func NewTreeNode(board *BitBoard, lastmove *BitMove) *TreeNode {
-	moveslice := NewBitMoveSlice()
+	moveslice := *NewBitMoveSlice()
 	slen := 0
-	genBitChildren(board, lastmove, moveslice, &slen)
+	genBitChildren(board, lastmove, &moveslice, &slen)
 	return &TreeNode{
 		outcomes:   1,
 		wincomes:   [2]int{0,0},
-		childMoves: *moveslice,
+		childMoves: moveslice,
 		nChildMoves: slen,
 		childNodes: make(NodeChildren),
 	}
@@ -197,7 +197,8 @@ func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player,
 
 		//Find the largest UCB value for all the moves
 		//fmt.Println("Selection:")
-		for _, cmove := range lastNode.childMoves {
+		for i := 0; i < lastNode.nChildMoves; i++ {
+			cmove := lastNode.childMoves[i]
 			ratio := float64(0.0)
 			nextNode, ok := lastNode.childNodes[cmove]
 			nextOutcomes := 1.0
@@ -258,7 +259,11 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move BitMove) int {
 	for !finished(score) {
 		slen = 0
 		genBitPartialChildren(subscores, &simBoard, &move, moveslice, &slen)
-		
+
+
+		if slen == 0 {
+			drawBoard(simBoard.toBoard(), move.toMove())
+		}
 		//Check for one move away wins
 		for i := 0; i < slen; i++ {
 			p_move := (*moveslice)[i]

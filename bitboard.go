@@ -105,7 +105,7 @@ func genBitPartialChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMo
 	}
 
 	genBitPartialBoardChildren(subscores, b, lastmove, moveslice, slen)
-	if len(*moveslice) == 0 {
+	if *slen == 0 {
 		genBitPartialAllChildren(subscores, b, lastmove, moveslice, slen)
 	}
 	return
@@ -313,5 +313,5 @@ func scoreBitSubBoard(b *BitBoard, s uint8) int {
 
 func appendBitMoves(moveslice *BitMoveSlice, len *int, move BitMove) {
 	(*moveslice)[*len] = move
-	(*len)++
+	*len = *len + 1
 }
