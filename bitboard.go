@@ -91,32 +91,31 @@ func bitMaskFromMove(move *BitMove) uint32 {
 
 /* Move generation */
 
-func genBitChildren(b *BitBoard, lastmove *BitMove) *BitMoveSlice {
+func genBitChildren(b *BitBoard, lastmove *BitMove, moveslice *BitMoveSlice, slen *int) {
 	subscores := subScoresBoard(b)
 
-	return genBitPartialChildren(subscores, b, lastmove)
+	genBitPartialChildren(subscores, b, lastmove, moveslice, slen)
 }
 	
 
-func genBitPartialChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove) *BitMoveSlice {
-	var moves *BitMoveSlice
+func genBitPartialChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove, moveslice *BitMoveSlice, slen *int) {
 	if lastmove.isNoMove() {
-		return genBitPartialAllChildren(subscores, b, lastmove)
+		genBitPartialAllChildren(subscores, b, lastmove, moveslice, slen)
+		return
 	}
 
-	moves = genBitPartialBoardChildren(subscores, b, lastmove)
-	if len(*moves) == 0 {
-		return genBitPartialAllChildren(subscores, b, lastmove)
+	genBitPartialBoardChildren(subscores, b, lastmove, moveslice, slen)
+	if len(*moveslice) == 0 {
+		genBitPartialAllChildren(subscores, b, lastmove, moveslice, slen)
 	}
-	return moves
+	return
 }
 
-func genBitPartialBoardChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove) *BitMoveSlice {
-	moves := make(BitMoveSlice, 0, 9)
+func genBitPartialBoardChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove, moveslice *BitMoveSlice, slen *int) {
 	s := lastmove.c
 
 	if subscores[s] != 0 {
-		return &moves
+		return
 	}
 
 	// if(lastmove.isNoMove()){
@@ -130,25 +129,24 @@ func genBitPartialBoardChildren(subscores *BitSubScores, b *BitBoard, lastmove *
 	for cell := uint8(0); cell < 9; cell++ {
 		move := BitMove{s: s, c: cell}
 		if b.isBlank(&move) {
-			moves = append(moves, move)
+			appendBitMoves(moveslice, slen, move)
 		}
 	}
 
-	return &moves
+	return
 }
 
-func genBitPartialAllChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove) *BitMoveSlice {
-	moves := make(BitMoveSlice,0,81)
+func genBitPartialAllChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove, moveslice *BitMoveSlice, slen *int) {
 	var cell uint8
 
 	// FIXME: Horrible horrible hack, need to refactor this to make sense
 	fakemove := new(BitMove)
 	for cell = 0; cell < 9; cell++ {
 		fakemove.c = cell
-		moves = append(moves, *genBitPartialBoardChildren(subscores, b, fakemove)...)
+		genBitPartialBoardChildren(subscores, b, fakemove, moveslice, slen)
 		
 	}
-	return &moves
+	return
 }
 
 func areBitChildren(b *BitBoard, lastmove *BitMove) bool {
@@ -311,4 +309,9 @@ func scoreBitSubBoard(b *BitBoard, s uint8) int {
 	}
 
 	return 0
+}
+
+func appendBitMoves(moveslice *BitMoveSlice, len *int, move BitMove) {
+	(*moveslice)[*len] = move
+	(*len)++
 }

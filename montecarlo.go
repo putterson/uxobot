@@ -27,6 +27,7 @@ type TreeNode struct {
 	wincomes   [2]int
 	move       BitMove
 	childMoves BitMoveSlice
+	nChildMoves int
 	childNodes NodeChildren
 }
 
@@ -43,10 +44,14 @@ func (t *TreeNode) getMove(n int) BitMove {
 }
 
 func NewTreeNode(board *BitBoard, lastmove *BitMove) *TreeNode {
+	moveslice := NewBitMoveSlice()
+	slen := 0
+	genBitChildren(board, lastmove, moveslice, &slen)
 	return &TreeNode{
 		outcomes:   1,
 		wincomes:   [2]int{0,0},
-		childMoves: *genBitChildren(board, lastmove),
+		childMoves: *moveslice,
+		nChildMoves: slen,
 		childNodes: make(NodeChildren),
 	}
 }
@@ -216,13 +221,6 @@ func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player,
 
 			//fmt.Printf("%d move had ucb of %.2f\n", cmove, ucbval)
 		}
-
-		if optimalMove == NoBitMove() {
-			fmt.Printf("Bad length of childMoves? %d\n", len(lastNode.childMoves))
-			drawBoard(board.toBoard(), move.toMove())
-			fmt.Println("Failed to find optimalMove during selection")
-		}
-		
 		
 		move = optimalMove
 		board.applyMove(&move, player)
@@ -250,24 +248,20 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move BitMove) int {
 	//fmt.Println("Simulation phase")
 	//make random moves until the game is over
 
+	moveslice := NewBitMoveSlice()
+	slen := 0
 	simBoard := board
 
 	subscores := subScoresBoard(&simBoard)
 	score := boardPartialScore(subscores, &simBoard, &move)
 	
 	for !finished(score) {
-		moves := genBitPartialChildren(subscores, &simBoard, &move)
-		size_moves := len(*moves)
-
-		if size_moves == 0 {
-			drawBoard(simBoard.toBoard(), move.toMove())
-			fmt.Printf("Error in simulation | score: %d | size_moves: %d\n",score, size_moves)
-			fmt.Printf("%d",subscores)
-			return 0
-		}
+		slen = 0
+		genBitPartialChildren(subscores, &simBoard, &move, moveslice, &slen)
 		
 		//Check for one move away wins
-		for _, p_move := range *moves {
+		for i := 0; i < slen; i++ {
+			p_move := (*moveslice)[i]
 			simBoard.applyMove(&p_move, player)
 			oldscores := *subscores
 			score = boardPartialScore(subscores, &simBoard, &p_move)
@@ -281,8 +275,8 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move BitMove) int {
 		}
 
 		//otherwise make random move on board
-		rnd_move_index := rand.Intn(size_moves)
-		move = (*moves)[rnd_move_index]
+		rnd_move_index := rand.Intn(slen)
+		move = (*moveslice)[rnd_move_index]
 		simBoard.applyMove(&move, player)
 		
 		score = boardPartialScore(subscores, &simBoard, &move)
