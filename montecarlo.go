@@ -139,7 +139,7 @@ func bitBoardStatus(board *BitBoard, lastmove *BitMove) int {
 	score := scoreBoard(board)
 
 	if score == 0 {
-		if len(*genBitChildren(board, lastmove)) == 0 {
+		if !areBitChildren(board, lastmove) {
 			return -2
 		} else {
 			return 0
@@ -152,7 +152,7 @@ func bitBoardStatus(board *BitBoard, lastmove *BitMove) int {
 func boardPartialScore(subscores *BitSubScores, board *BitBoard, lastmove *BitMove) int {
 	score := scorePartialBoard(subscores, board, lastmove)
 	if score == 0 {
-		if len(*genBitPartialChildren(subscores, board, lastmove)) == 0 {
+		if !areBitPartialChildren(subscores, board, lastmove) {
 			return -2
 		} else {
 			return 0

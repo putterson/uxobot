@@ -151,6 +151,66 @@ func genBitPartialAllChildren(subscores *BitSubScores, b *BitBoard, lastmove *Bi
 	return &moves
 }
 
+func areBitChildren(b *BitBoard, lastmove *BitMove) bool {
+	subscores := subScoresBoard(b)
+
+	return areBitPartialChildren(subscores, b, lastmove)
+}
+
+func areBitPartialChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove) bool {
+	var moves bool
+	if lastmove.isNoMove() {
+		return areBitPartialAllChildren(subscores, b, lastmove)
+	}
+
+	moves = areBitPartialBoardChildren(subscores, b, lastmove)
+	if !moves {
+		return areBitPartialAllChildren(subscores, b, lastmove)
+	}
+	return moves
+}
+
+func areBitPartialBoardChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove) bool {
+	s := lastmove.c
+
+	if subscores[s] != 0 {
+		return false
+	}
+
+	// if(lastmove.isNoMove()){
+	// 	won := subscores[s]
+	// 	if  won == 1 || won == -1 {
+	// 		//fmt.Println("Board is won:", ox, oy)
+	// 		return &moves
+	// 	}
+	// }b
+
+	move := BitMove{s: s, c: uint8(0)}
+	for cell := uint8(0); cell < 9; cell++ {
+		move.c = cell
+		if b.isBlank(&move) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func areBitPartialAllChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove) bool {
+	var cell uint8
+
+	// FIXME: Horrible horrible hack, need to refactor this to make sense
+	fakemove := new(BitMove)
+	for cell = 0; cell < 9; cell++ {
+		fakemove.c = cell
+		if areBitPartialBoardChildren(subscores, b, fakemove) {
+			return true
+		}
+		
+	}
+	return false
+}
+
 /* Scoring */
 
 var bitX = uint32(X)
