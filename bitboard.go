@@ -284,6 +284,8 @@ var superlines = []SuperLine{
 }
 
 
+var subBoardCache = [174762]int{}
+
 /**
  * Return the score for a subboard s
  * 1 if X is the winner, -1 if O is the winner, 0 otherwise (doesn't take into account draws)
@@ -297,17 +299,26 @@ func scoreBitSubBoard(b *BitBoard, s uint8) int {
 	// 	b[x] = bcols[x][by:by+3]
 	// }
 
-	//fmt.Println("Entering evalSubBoard at location", s)
+	score := subBoardCache[b[s]]
 
-	for i, l := range bitMasklines {
-		masked := b[s] & l
-		if masked == bitXlines[i]{
+	if score != 0 {
+		return score % 2
+	}
+	
+	board := b[s]
+
+	//fmt.Println("Entering evalSubBoard at location", s)
+	for i := 0; i < 8; i++ {
+		if bitXlines[i] & board == bitXlines[i]{
+			subBoardCache[board] = 1
 			return 1
-		} else if masked == bitOlines[i]{
+		} else if bitOlines[i] & board == bitOlines[i]{
+			subBoardCache[board] = -1
 			return -1
 		}
 	}
 
+	subBoardCache[board] = 2
 	return 0
 }
 
