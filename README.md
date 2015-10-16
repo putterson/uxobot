@@ -10,6 +10,17 @@ with the clarifying rules:
 Included are two AI players. One is based on the negamax algorithm with zobrist hashing to cache node values and uses an imperfect heuristic to evaluate unfinished games.
 The second is based on a Monte Carlo tree search algorithm with the UCT extension to balance exploration vs exploitation.
 
+# Making
+```
+go build
+```
+or
+```
+go install
+```
+
+uxobot does not depend on any external libraries
+
 # Running
 ./uxobot [opts]
 Specify the two players with the -p1 and -p2 options. Valid values are 'human', 'negamax', and 'montecarlo'
