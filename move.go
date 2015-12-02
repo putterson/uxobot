@@ -9,10 +9,17 @@ type Move struct {
 
 const noMove int = 254
 
-func (m *BitMove) toMove() Move {
-	return move_notation(int(m.s)+1, int(m.c)+1)
+func (m *Move) toBitMove() BitMove {
+	if m.isNoMove() {
+		return NoBitMove()
+	}
 
+	s := uint8((m.x / 3) + 3*(m.y / 3))
+	c := uint8((m.x % 3) + 3*(m.y % 3))
+
+	return BitMove{s: s, c: c}
 }
+
 
 func (m Move) isNoMove() bool {
 	if m.x == noMove || m.y == noMove {
@@ -38,13 +45,6 @@ func move_to_subboard(m Move) Move {
 	return Move{
 		x: (m.x/3)*3,
 		y: (m.y/3)*3,
-	}
-}
-
-func move_to_subscore(m Move) Move {
-	return Move{
-		x: (m.x/3),
-		y: (m.y/3),
 	}
 }
 

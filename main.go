@@ -1,51 +1,42 @@
 package main
 
 import (
-	"fmt"
 	"bufio"
+	"fmt"
 	"os"
-// 	"os/signal"
-	"strings"
+	// 	"os/signal"
 	"flag"
+	"strings"
 	//"errors"
-	"time"
-	"runtime/pprof"
-	"runtime"
 	"log"
+	"runtime"
+	"runtime/pprof"
+	"time"
 )
 
 var Stdin = bufio.NewReader(os.Stdin)
 
-
 var maptochar = []string{" ", "X", "O"}
 
-
 type GameSettings struct {
-	players [2]string
-	depth [2]float64
+	players   [2]string
+	depth     [2]float64
 	curplayer Player
-	running bool
-	paused bool
-	lastmove *Move
-	board *Board
+	running   bool
+	paused    bool
+	lastmove  *Move
+	board     *Board
 }
 
 /*
 *
 * Main loops
 *
-*/
+ */
 func main() {
-// 	sigs := make(chan os.Signal, 1)
-// 	done := make(chan bool, 1)
-
-
-	
-	
-
 	settings := &GameSettings{
-		[2]string{"montecarlo","negamax",},
-		[2]float64{1,9,},
+		[2]string{"montecarlo", "negamax"},
+		[2]float64{1, 9},
 		X,
 		false,
 		false,
@@ -60,6 +51,7 @@ func main() {
 	player_one := flag.String("p1", "montecarlo", "Set player 1 to cpu or human.")
 	player_two := flag.String("p2", "negamax", "Set player 2 to cpu or human.")
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+	var memprofile = flag.String("memprofile", "", "write memory profile to file")
 
 	flag.Parse()
 
@@ -73,7 +65,7 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	
+
 	if !(*prompt) {
 		settings.players[0] = *player_one
 		settings.players[1] = *player_two
@@ -82,6 +74,17 @@ func main() {
 		settings.board = newBoard()
 		settings.curplayer = X
 		gameloop(settings)
+		if *memprofile != "" {
+			hf, err := os.Create(*memprofile)
+			if err != nil {
+				log.Fatal(err)
+				os.Exit(1)
+			}
+			fmt.Println("Writing out heap profile")
+			pprof.WriteHeapProfile(hf)
+			hf.Close()
+			return
+		}
 		os.Exit(0)
 	}
 
@@ -90,7 +93,7 @@ func main() {
 		fmt.Printf(colourString("[uxobot]>"))
 		var input, _ = Stdin.ReadString('\n')
 
-		if strings.Contains(input, "help"){
+		if strings.Contains(input, "help") {
 			fmt.Println("Available commands are: start, quit")
 		} else if strings.Contains(input, "quit") || strings.Contains(input, "exit") {
 			os.Exit(0)
@@ -102,6 +105,7 @@ func main() {
 			fmt.Println("Enter a valid command or type help.")
 		}
 	}
+
 }
 
 func newBoard() *Board {
@@ -126,14 +130,13 @@ func makeBot(bottype string, depth float64) UXOBot {
 	}
 }
 
-func gameloop(s *GameSettings){
+func gameloop(s *GameSettings) {
 	lastmove := *NewMove()
 	var move Move
 	bots := [2]UXOBot{
 		makeBot(s.players[0], s.depth[0]),
 		makeBot(s.players[1], s.depth[1]),
 	}
-	
 	for {
 
 		move = NoMove()
@@ -146,14 +149,13 @@ func gameloop(s *GameSettings){
 
 		}
 
-
 		if move.isNoMove() {
 			drawBoard(s.board, move)
 			fmt.Println("Draw! Game Over!")
 			return
 		}
 
-		for _, bot := range(bots){
+		for _, bot := range bots {
 			if bot != nil {
 				err := bot.makeMove(move)
 				if err != nil {
@@ -163,8 +165,6 @@ func gameloop(s *GameSettings){
 		}
 
 		s.board.applyMove(&move, s.curplayer)
-		// (*s.board)[move.x][move.y] = s.curplayer
-		getSuperScores(s.board).Print()
 		drawBoard(s.board, move)
 
 		if evalBoard(s.board) == SCOREMAX {
@@ -179,7 +179,6 @@ func gameloop(s *GameSettings){
 		s.curplayer = notPlayer(s.curplayer)
 	}
 }
-
 
 func getHumanMove(board *Board, lastmove Move) (move Move) {
 	move = *(new(Move))
@@ -200,7 +199,7 @@ func getHumanMove(board *Board, lastmove Move) (move Move) {
 			}
 			// if there were no matching moves
 			fmt.Println("Please make a valid move, or type help.")
-		} else if strings.Contains(input, "help"){
+		} else if strings.Contains(input, "help") {
 			fmt.Println("There should be some help here...")
 			fmt.Println("Valid moves are of the form \"1 9\" ie. a board number followed by a cell number (1-9)")
 		} else if strings.Contains(input, "quit") || strings.Contains(input, "exit") {
@@ -223,40 +222,36 @@ func getHumanMove(board *Board, lastmove Move) (move Move) {
 
 func getCpuMove(bot UXOBot, b *Board, lastmove *Move, player Player) Move {
 
-
-	
 	//node.moves.Print()
 	start_t := time.Now()
-	
+
 	move, err := bot.getMove(*b, *lastmove, player)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	
+
 	duration := time.Since(start_t).Seconds()
 
-
 	fmt.Printf("Move: [%d,%d] Time (s): %.2f\n",
-		move.x, move.y,	duration)
+		move.x, move.y, duration)
 	return move
 }
-
 
 /*
 *
 * Board drawing functionality
 *
-*/
+ */
 func drawBoard(b *Board, move Move) {
-	thins  := "─┼─┼─┃─┼─┼─┃─┼─┼─"
+	thins := "─┼─┼─┃─┼─┼─┃─┼─┼─"
 	thicks := "━━━━━╋━━━━━╋━━━━━"
 	piece := ""
 
 	var x, y int
 	for y = 0; y < 9; y++ {
 		if y > 0 {
-			if y % 3 == 0 {
+			if y%3 == 0 {
 				fmt.Println(thicks)
 			} else {
 				fmt.Println(thins)
@@ -270,9 +265,8 @@ func drawBoard(b *Board, move Move) {
 				piece = maptochar[(*b)[x][y]]
 			}
 
-
-			if x > 0{
-				if x % 3 == 0{
+			if x > 0 {
+				if x%3 == 0 {
 					fmt.Printf("┃%s", piece)
 				} else {
 					fmt.Printf("│%s", piece)
@@ -286,7 +280,7 @@ func drawBoard(b *Board, move Move) {
 	return
 }
 
-func colourString(c string) string{
-//	return c
+func colourString(c string) string {
+	//	return c
 	return "\x1b[31;1m" + c + "\x1b[0m"
 }

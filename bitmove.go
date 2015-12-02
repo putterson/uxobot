@@ -11,15 +11,8 @@ type BitMove struct {
 
 const noBitMove uint8 = uint8(254)
 
-func (m *Move) toBitMove() BitMove {
-	if m.isNoMove() {
-		return NoBitMove()
-	}
-	
-	s := uint8((m.x / 3) + 3*(m.y / 3))
-	c := uint8((m.x % 3) + 3*(m.y % 3))
-
-	return BitMove{s: s, c: c}
+func (m *BitMove) toMove() Move {
+	return move_notation(int(m.s)+1, int(m.c)+1)
 }
 
 func (m *BitMove) isNoMove() bool {
@@ -32,13 +25,6 @@ func (m *BitMove) isNoMove() bool {
 
 func NoBitMove() BitMove {
 	return BitMove{noBitMove, noBitMove}
-}
-
-func NewBitMove() *BitMove {
-	return &BitMove{
-		s: noBitMove,
-		c: noBitMove,
-	}
 }
 
 func (m *BitMove) Print() {

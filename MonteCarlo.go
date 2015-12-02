@@ -20,42 +20,6 @@ func NewMonteCarlo(timeout float64) *MonteCarlo {
 	}
 }
 
-type NodeChildren map[BitMove]*TreeNode
-
-type TreeNode struct {
-	outcomes   int
-	wincomes   [2]int
-	move       BitMove
-	childMoves BitMoveSlice
-	nChildMoves int
-	childNodes NodeChildren
-}
-
-func (t *TreeNode) hasChildNodes() bool {
-	return len(t.childNodes) > 0
-}
-
-func (t *TreeNode) nNextMoves() int {
-	return len(t.childMoves)
-}
-
-func (t *TreeNode) getMove(n int) BitMove {
-	return t.childMoves[n]
-}
-
-func NewTreeNode(board *BitBoard, lastmove *BitMove) *TreeNode {
-	moveslice := *NewBitMoveSlice()
-	slen := 0
-	genBitChildren(board, lastmove, &moveslice, &slen)
-	return &TreeNode{
-		outcomes:   1,
-		wincomes:   [2]int{0,0},
-		childMoves: moveslice,
-		nChildMoves: slen,
-		childNodes: make(NodeChildren),
-	}
-}
-
 func getLastNode(nodePath []*TreeNode) *TreeNode {
 	return nodePath[len(nodePath)-1]
 }
@@ -85,7 +49,6 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 		fmt.Println("getMove with nil root")
 		m.root = NewTreeNode(&origBitBoard, &origBitMove)
 	}
-	fmt.Printf("Length of childNodes: %d\n", len(m.root.childMoves))
 	
 	start_t := time.Now()
 
@@ -127,12 +90,13 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 			optimalNode = node
 			visits = newVisits
 		}
-		ratio := float64(node.wincomes[player-1]) / float64(node.outcomes)
-		fmt.Printf("%d move had ratio of %d / %d = %.2f\n", move, node.wincomes, node.outcomes, ratio)
+		//ratio := float64(node.wincomes[player-1]) / float64(node.outcomes)
+//		fmt.Printf("%d move had ratio of %d / %d = %.2f\n", move, node.wincomes, node.outcomes, ratio)
 	}
 
 	ratio := float64(optimalNode.wincomes[player-1]) / float64(optimalNode.outcomes)
-	fmt.Printf("optimal move %d had ratio of %d / %d = %.2f\nout of %d rounds\n", optimalMove, optimalNode.wincomes, optimalNode.outcomes, ratio, count)
+	//fmt.Printf("optimal move %d had ratio of %d / %d = %.2f\nout of %d rounds\n", optimalMove, optimalNode.wincomes, optimalNode.outcomes, ratio, count)
+	fmt.Printf("Examined %d playouts with win probability of %.2f\n", count, ratio)
 	return optimalMove.toMove(), nil
 }
 
