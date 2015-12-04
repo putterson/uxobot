@@ -31,7 +31,7 @@ func (m *MonteCarlo) makeMove(move Move) error {
 	if m.root == nil {
 		return errors.New("root was nil")
 	}
-	node, ok := m.root.childNodes[move.toBitMove()]
+	node, ok := m.root.getChild(move.toBitMove())
 	if ok {
 		//fmt.Println("Found childNode")
 		m.root = node
@@ -81,13 +81,13 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 
 	//fmt.Println("Eval final move")
 	//Final move should be the move with the most visits, not the best ratio
-	for move, node := range m.root.childNodes {
+	for _, node := range m.root.childNodes {
 
 		//move.Print()
 		newVisits = node.outcomes
 		if newVisits > visits {
-			optimalMove = move
-			optimalNode = node
+			optimalMove = node.move
+			optimalNode = &node
 			visits = newVisits
 		}
 		//ratio := float64(node.wincomes[player-1]) / float64(node.outcomes)
@@ -164,7 +164,7 @@ func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player,
 		for i := 0; i < lastNode.nChildMoves; i++ {
 			cmove := lastNode.childMoves[i]
 			ratio := float64(0.0)
-			nextNode, ok := lastNode.childNodes[cmove]
+			nextNode, ok := lastNode.getChild(cmove)
 			nextOutcomes := 1.0
 			if ok {
 				ratio = float64(nextNode.wincomes[player-1]) / float64(nextNode.outcomes)
@@ -196,8 +196,7 @@ func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player,
 		if !optimalOk {
 			//Go to Extension phase
 			//fmt.Println("Extension phase")
-			optimalNode := NewTreeNode(&board, &move)
-			lastNode.childNodes[move] = optimalNode
+			optimalNode := lastNode.addChild(&board, &move)
 			nodePath = append(nodePath, optimalNode)
 			break
 		} else {

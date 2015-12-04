@@ -1,6 +1,6 @@
 package main
 
-type NodeChildren map[BitMove]*TreeNode
+type NodeChildren []TreeNode
 
 type TreeNode struct {
 	outcomes   int
@@ -23,6 +23,21 @@ func (t *TreeNode) getMove(n int) BitMove {
 	return t.childMoves[n]
 }
 
+func (t *TreeNode) getChild(move BitMove) (*TreeNode, bool) {
+	for _, node := range (t.childNodes) {
+		if node.move == move {
+			return &node, true
+		}
+	}
+	return nil, false
+}
+
+func (t *TreeNode) addChild(board *BitBoard, move *BitMove) *TreeNode {
+	newNode := NewTreeNode(board, move)
+	t.childNodes = append(t.childNodes, *newNode)
+	return newNode
+}
+
 func NewTreeNode(board *BitBoard, lastmove *BitMove) *TreeNode {
 	moveslice := *NewBitMoveSlice()
 	slen := 0
@@ -30,8 +45,9 @@ func NewTreeNode(board *BitBoard, lastmove *BitMove) *TreeNode {
 	return &TreeNode{
 		outcomes:   1,
 		wincomes:   [2]int{0,0},
+		move: BitMove{lastmove.s, lastmove.c,},
 		childMoves: moveslice,
 		nChildMoves: slen,
-		childNodes: make(NodeChildren),
+		childNodes: make(NodeChildren, 0, 9),
 	}
 }
