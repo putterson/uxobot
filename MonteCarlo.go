@@ -87,7 +87,7 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 		newVisits = node.outcomes
 		if newVisits > visits {
 			optimalMove = node.move
-			optimalNode = &node
+			optimalNode = node
 			visits = newVisits
 		}
 		//ratio := float64(node.wincomes[player-1]) / float64(node.outcomes)
