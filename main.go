@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"time"
+	"math/rand"
 )
 
 var Stdin = bufio.NewReader(os.Stdin)
@@ -34,6 +35,8 @@ type GameSettings struct {
 *
  */
 func main() {
+	rand.Seed( time.Now().UTC().UnixNano())
+
 	settings := &GameSettings{
 		[2]string{"montecarlo", "negamax"},
 		[2]float64{1, 9},
