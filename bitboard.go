@@ -171,17 +171,11 @@ func areBitPartialChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMo
 func areBitPartialBoardChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove) bool {
 	s := lastmove.c
 
+//	blanksBoardMask := uint32()
+
 	if subscores[s] != 0 {
 		return false
 	}
-
-	// if(lastmove.isNoMove()){
-	// 	won := subscores[s]
-	// 	if  won == 1 || won == -1 {
-	// 		//fmt.Println("Board is won:", ox, oy)
-	// 		return &moves
-	// 	}
-	// }b
 
 	move := BitMove{s: s, c: uint8(0)}
 	for cell := uint8(0); cell < 9; cell++ {

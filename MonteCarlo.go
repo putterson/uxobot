@@ -63,7 +63,7 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 
 		bitboard, player, move, nodePath := m.selection(origBitBoard, origPlayer)
 
-		score := m.simulate(bitboard, player, move)
+		score := m.simulate(bitboard, player, &move)
 
 		//drawBoard(&board, move)
 	
@@ -207,7 +207,7 @@ func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player,
 	return board, player, move, nodePath
 }
 
-func (m *MonteCarlo) simulate(board BitBoard, player Player, move BitMove) int {
+func (m *MonteCarlo) simulate(board BitBoard, player Player, move *BitMove) int {
 	//Simulation phase
 	//fmt.Println("Simulation phase")
 	//make random moves until the game is over
@@ -217,11 +217,11 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move BitMove) int {
 	simBoard := board
 
 	subscores := subScoresBoard(&simBoard)
-	score := boardPartialScore(subscores, &simBoard, &move)
+	score := boardPartialScore(subscores, &simBoard, move)
 	
 	for !finished(score) {
 		slen = 0
-		genBitPartialChildren(subscores, &simBoard, &move, moveslice, &slen)
+		genBitPartialChildren(subscores, &simBoard, move, moveslice, &slen)
 
 
 		if slen == 0 {
@@ -229,25 +229,25 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move BitMove) int {
 		}
 		//Check for one move away wins
 		for i := 0; i < slen; i++ {
-			p_move := (*moveslice)[i]
-			simBoard.applyMove(&p_move, player)
+			p_move := &(*moveslice)[i]
+			simBoard.applyMove(p_move, player)
 			oldscores := *subscores
-			score = boardPartialScore(subscores, &simBoard, &p_move)
+			score = boardPartialScore(subscores, &simBoard, p_move)
 			if (score & 1) == 1 {
 				//fmt.Printf("Found one move away win score: %d\n", score )
 				//drawBoard(&board, p_move)
 				return score
 			}
-			simBoard.applyMove(&p_move, B)
+			simBoard.applyMove(p_move, B)
 			subscores = &oldscores
 		}
 
 		//otherwise make random move on board
 		rnd_move_index := rand.Intn(slen)
-		move = (*moveslice)[rnd_move_index]
-		simBoard.applyMove(&move, player)
+		move = &(*moveslice)[rnd_move_index]
+		simBoard.applyMove(move, player)
 		
-		score = boardPartialScore(subscores, &simBoard, &move)
+		score = boardPartialScore(subscores, &simBoard, move)
 
 		player = notPlayer(player)
 	}
