@@ -60,11 +60,16 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 	
 	count := 0
 
+	var nodePath NodePath
+	nodePath = make(NodePath, 0, 81)
+	nodePath = append(nodePath, m.root)
+
 	for (time.Since(start_t).Seconds() < m.timeout) {
 		count++
 		player := origPlayer
 
-		bitboard, player, move, nodePath := m.selection(origBitBoard, origPlayer)
+		nodePath = nodePath[:1]
+		bitboard, player, move, nodePath := m.selection(nodePath, origBitBoard, origPlayer)
 
 		score := m.simulate(bitboard, player, &move)
 
@@ -107,20 +112,6 @@ func finished(score int) bool {
 	return score != 0
 }
 
-func bitBoardStatus(board *BitBoard, lastmove *BitMove) int {
-	score := scoreBoard(board)
-
-	if score == 0 {
-		if !areBitChildren(board, lastmove) {
-			return -2
-		} else {
-			return 0
-		}
-	} else {
-		return score
-	}
-}
-
 func boardPartialScore(subscores *BitSubScores, board *BitBoard, lastmove *BitMove) int {
 	score := scorePartialBoard(subscores, board, lastmove)
 	if score == 0 {
@@ -142,20 +133,20 @@ func montePlayerToMul(origPlayer Player, player Player) int {
 	}
 }
 
-func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player, BitMove, []*TreeNode) {
-	var nodePath []*TreeNode
-	nodePath = make([]*TreeNode, 0, 81)
-	nodePath = append(nodePath, m.root)
+type NodePath []*TreeNode
 
+func (m *MonteCarlo) selection(nodePath NodePath, board BitBoard, player Player) (BitBoard, Player, BitMove, NodePath) {
 	var move BitMove
 	nomove := NoBitMove()
 	move = NoBitMove()
 
+
+	subscores := subScoresBoard(&board)
 	//Selection phase
 	//fmt.Println("Selection phase")
 	//While the node has visited children move to a selected child
 	var lastNode *TreeNode
-	for !finished(bitBoardStatus(&board,&move)) {
+	for !finished(boardPartialScore(subscores, &board,&move)) {
 		lastNode = getLastNode(nodePath);
 		optimalUCB := math.Inf(-1)
 		var optimalNode *TreeNode
@@ -221,20 +212,21 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move *BitMove) int 
 
 	subscores := subScoresBoard(&simBoard)
 	score := boardPartialScore(subscores, &simBoard, move)
-	
+
 	for !finished(score) {
 		slen = 0
 		genBitPartialChildren(subscores, &simBoard, move, moveslice, &slen)
 
 
-		if slen == 0 {
-			drawBoard(simBoard.toBoard(), move.toMove())
-		}
+//		if slen == 0 {
+//			drawBoard(simBoard.toBoard(), move.toMove())
+//		}
+
 		//Check for one move away wins
+		oldscores := *subscores
 		for i := 0; i < slen; i++ {
 			p_move := &(*moveslice)[i]
 			simBoard.applyMove(p_move, player)
-			oldscores := *subscores
 			score = boardPartialScore(subscores, &simBoard, p_move)
 			if (score & 1) == 1 {
 				//fmt.Printf("Found one move away win score: %d\n", score )
