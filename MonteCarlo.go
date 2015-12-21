@@ -37,7 +37,10 @@ func (m *MonteCarlo) makeMove(move Move) error {
 		m.root = node
 		return nil
 	} else {
-		return errors.New("Move was not available")
+		//Technically this is not an error because montecarlo may just not have visited that node
+		//it will continue just fine by setting the root to nil
+		m.root = nil
+		return nil
 	}
 }
 

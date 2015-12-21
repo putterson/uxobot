@@ -219,7 +219,7 @@ func shiftMask(dist uint32) uint32 {
 	return 3 << (dist*2)
 }
 
-var bitMasklines = []uint32{
+var bitMasklines = [8]uint32{
 	shiftMask(0) + shiftMask(3) + shiftMask(6),
 	shiftMask(1) + shiftMask(4) + shiftMask(7),
 	shiftMask(2) + shiftMask(5) + shiftMask(8),
@@ -232,7 +232,7 @@ var bitMasklines = []uint32{
 	shiftMask(2) + shiftMask(4) + shiftMask(6),
 }
 
-var bitXlines = []uint32{
+var bitXlines = [8]uint32{
 	shiftX(0) + shiftX(3) + shiftX(6),
 	shiftX(1) + shiftX(4) + shiftX(7),
 	shiftX(2) + shiftX(5) + shiftX(8),
@@ -245,7 +245,7 @@ var bitXlines = []uint32{
 	shiftX(2) + shiftX(4) + shiftX(6),
 }
 
-var bitOlines = []uint32{
+var bitOlines = [8]uint32{
 	shiftO(0) + shiftO(3) + shiftO(6),
 	shiftO(1) + shiftO(4) + shiftO(7),
 	shiftO(2) + shiftO(5) + shiftO(8),
@@ -278,7 +278,7 @@ var superlines = []SuperLine{
 }
 
 
-var subBoardCache = [174762]int{}
+var subBoardCache = [174762]int8{}
 
 /**
  * Return the score for a subboard s
@@ -293,13 +293,14 @@ func scoreBitSubBoard(b *BitBoard, s uint8) int {
 	// 	b[x] = bcols[x][by:by+3]
 	// }
 
-	score := subBoardCache[b[s]]
+	board := b[s]
+
+	score := subBoardCache[board]
 
 	if score != 0 {
-		return score % 2
+		return int(score % 2)
 	}
-	
-	board := b[s]
+
 
 	//fmt.Println("Entering evalSubBoard at location", s)
 	for i := 0; i < 8; i++ {
