@@ -38,6 +38,23 @@ To make a move at the [move]> prompt type two numbers that correspond to the boa
 So to move in the centre board in the top left cell you would type:
 ```
 [move]>5 1
+ │ │ ┃ │ │ ┃ │ │ 
+─┼─┼─┃─┼─┼─┃─┼─┼─
+ │ │ ┃ │ │ ┃ │ │ 
+─┼─┼─┃─┼─┼─┃─┼─┼─
+ │ │ ┃ │ │ ┃ │ │ 
+━━━━━╋━━━━━╋━━━━━
+ │ │ ┃X│ │ ┃ │ │ 
+─┼─┼─┃─┼─┼─┃─┼─┼─
+ │ │ ┃ │ │ ┃ │ │ 
+─┼─┼─┃─┼─┼─┃─┼─┼─
+ │ │ ┃ │ │ ┃ │ │ 
+━━━━━╋━━━━━╋━━━━━
+ │ │ ┃ │ │ ┃ │ │ 
+─┼─┼─┃─┼─┼─┃─┼─┼─
+ │ │ ┃ │ │ ┃ │ │ 
+─┼─┼─┃─┼─┼─┃─┼─┼─
+ │ │ ┃ │ │ ┃ │ │ 
 ```
 # Example
 ./uxobot -p1 montecarlo -s1 1 -p2 human
