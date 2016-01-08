@@ -4,7 +4,6 @@ import (
 	"fmt"
 )
 
-
 type BitBoard [9]uint32
 
 var pieces = [3]Player{B, X, O}
@@ -20,23 +19,23 @@ func (b *Board) toBitBoard() *BitBoard {
 			move.y = y
 
 			bmove := move.toBitMove()
-			
+
 			bb.applyMove(&bmove, b[x][y])
 		}
 	}
-	
+
 	return bb
 }
 
-func (b *BitBoard) applyMove(move *BitMove, player Player){
+func (b *BitBoard) applyMove(move *BitMove, player Player) {
 	subboard := move.s
 
-	if !b.isBlank(move) && player != B{
+	if !b.isBlank(move) && player != B {
 		fmt.Printf("MOVE %d, %d WAS NOT BLANK\n", move, player)
 		drawBoard(b.toBoard(), move.toMove())
 		panic("Bad move")
 	}
-	
+
 	b[subboard] = b[subboard] & ^bitMaskFromMove(move) | bitPlayerMaskFromMove(move, player)
 }
 
@@ -52,51 +51,34 @@ func (b *BitBoard) isMove(move *BitMove, player Player) bool {
 		fmt.Printf("pmask: %18b\n", pmask)
 	}
 
-	return b[subboard] & mask == pmask
+	return b[subboard]&mask == pmask
 }
 
 func (b *BitBoard) isBlank(move *BitMove) bool {
-
-	mask := bitMaskFromMove(move)
-	sub  := b[move.s]
-	mns  := mask & sub
-	
-	
 	// fmt.Printf("\n mask: %18b\n", mask)
 	// fmt.Printf("board: %18b\n", sub)
 	// fmt.Printf("  mns: %18b\n", mns)
 
-	return mns == uint32(0)
+	return bitMaskFromMove(move) & b[move.s] == uint32(0)
 }
 
-
 func (b *BitBoard) getMove(move *BitMove) Player {
-	subboard := move.s
-
-	return Player(b[subboard] & bitMaskFromMove(move) >> uint32(move.c*2))
+	return Player(b[move.s] & bitMaskFromMove(move) >> uint32(move.c*2))
 }
 
 func bitPlayerMaskFromMove(move *BitMove, player Player) uint32 {
-	bits := uint32(player)
-
-	return bits << uint32(move.c*2)
+	return uint32(player) << uint32(move.c*2)
 }
 
 func bitMaskFromMove(move *BitMove) uint32 {
-	bits := uint32(3)
-
-	return bits << uint32(move.c*2)
+	return uint32(3) << uint32(move.c*2)
 }
-
 
 /* Move generation */
 
 func genBitChildren(b *BitBoard, lastmove *BitMove, moveslice *BitMoveSlice, slen *int) {
-	subscores := subScoresBoard(b)
-
-	genBitPartialChildren(subscores, b, lastmove, moveslice, slen)
+	genBitPartialChildren(subScoresBoard(b), b, lastmove, moveslice, slen)
 }
-	
 
 func genBitPartialChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove, moveslice *BitMoveSlice, slen *int) {
 	if lastmove.isNoMove() {
@@ -144,7 +126,7 @@ func genBitPartialAllChildren(subscores *BitSubScores, b *BitBoard, lastmove *Bi
 	for cell = 0; cell < 9; cell++ {
 		fakemove.c = cell
 		genBitPartialBoardChildren(subscores, b, fakemove, moveslice, slen)
-		
+
 	}
 	return
 }
@@ -171,17 +153,11 @@ func areBitPartialChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMo
 func areBitPartialBoardChildren(subscores *BitSubScores, b *BitBoard, lastmove *BitMove) bool {
 	s := lastmove.c
 
+	//	blanksBoardMask := uint32()
+
 	if subscores[s] != 0 {
 		return false
 	}
-
-	// if(lastmove.isNoMove()){
-	// 	won := subscores[s]
-	// 	if  won == 1 || won == -1 {
-	// 		//fmt.Println("Board is won:", ox, oy)
-	// 		return &moves
-	// 	}
-	// }b
 
 	move := BitMove{s: s, c: uint8(0)}
 	for cell := uint8(0); cell < 9; cell++ {
@@ -204,7 +180,7 @@ func areBitPartialAllChildren(subscores *BitSubScores, b *BitBoard, lastmove *Bi
 		if areBitPartialBoardChildren(subscores, b, fakemove) {
 			return true
 		}
-		
+
 	}
 	return false
 }
@@ -215,17 +191,17 @@ var bitX = uint32(X)
 var bitO = uint32(O)
 
 func shiftX(dist uint32) uint32 {
-	return bitX << (dist*2)
+	return bitX << (dist * 2)
 }
 func shiftO(dist uint32) uint32 {
-	return bitO << (dist*2)
+	return bitO << (dist * 2)
 }
 
 func shiftMask(dist uint32) uint32 {
-	return 3 << (dist*2)
+	return 3 << (dist * 2)
 }
 
-var bitMasklines = []uint32{
+var bitMasklines = [8]uint32{
 	shiftMask(0) + shiftMask(3) + shiftMask(6),
 	shiftMask(1) + shiftMask(4) + shiftMask(7),
 	shiftMask(2) + shiftMask(5) + shiftMask(8),
@@ -238,7 +214,7 @@ var bitMasklines = []uint32{
 	shiftMask(2) + shiftMask(4) + shiftMask(6),
 }
 
-var bitXlines = []uint32{
+var bitXlines = [8]uint32{
 	shiftX(0) + shiftX(3) + shiftX(6),
 	shiftX(1) + shiftX(4) + shiftX(7),
 	shiftX(2) + shiftX(5) + shiftX(8),
@@ -251,7 +227,7 @@ var bitXlines = []uint32{
 	shiftX(2) + shiftX(4) + shiftX(6),
 }
 
-var bitOlines = []uint32{
+var bitOlines = [8]uint32{
 	shiftO(0) + shiftO(3) + shiftO(6),
 	shiftO(1) + shiftO(4) + shiftO(7),
 	shiftO(2) + shiftO(5) + shiftO(8),
@@ -271,20 +247,19 @@ type SuperLine struct {
 }
 
 var superlines = []SuperLine{
-	SuperLine{0 , 3 , 6},
-	SuperLine{1 , 4 , 7},
-	SuperLine{2 , 5 , 8},
+	SuperLine{0, 3, 6},
+	SuperLine{1, 4, 7},
+	SuperLine{2, 5, 8},
 
-	SuperLine{0 , 1 , 2},
-	SuperLine{3 , 4 , 5},
-	SuperLine{6 , 7 , 8},
+	SuperLine{0, 1, 2},
+	SuperLine{3, 4, 5},
+	SuperLine{6, 7, 8},
 
-	SuperLine{0 , 4 , 8},
-	SuperLine{2 , 4 , 6},
+	SuperLine{0, 4, 8},
+	SuperLine{2, 4, 6},
 }
 
-
-var subBoardCache = [174762]int{}
+var subBoardCache = [174762]int8{}
 
 /**
  * Return the score for a subboard s
@@ -292,27 +267,31 @@ var subBoardCache = [174762]int{}
  * @param s
  */
 func scoreBitSubBoard(b *BitBoard, s uint8) int {
-		// fmt.Println(len(board[bx:bx+3]))
+	// fmt.Println(len(board[bx:bx+3]))
 	// bcols := board[bx:bx+3]
 	// b := make([][]Player, 3)
 	// for x := 0; x < 3; x++ {
 	// 	b[x] = bcols[x][by:by+3]
 	// }
 
-	score := subBoardCache[b[s]]
+	board := b[s]
+
+	score := subBoardCache[board]
 
 	if score != 0 {
-		return score % 2
+		return int(score % 2)
 	}
-	
-	board := b[s]
 
 	//fmt.Println("Entering evalSubBoard at location", s)
 	for i := 0; i < 8; i++ {
-		if bitXlines[i] & board == bitXlines[i]{
+		if bitXlines[i]&board == bitXlines[i] {
 			subBoardCache[board] = 1
 			return 1
-		} else if bitOlines[i] & board == bitOlines[i]{
+		}
+	}
+
+	for i := 0; i < 8; i++ {
+		if bitOlines[i]&board == bitOlines[i] {
 			subBoardCache[board] = -1
 			return -1
 		}

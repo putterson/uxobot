@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"time"
+	"math/rand"
 )
 
 var Stdin = bufio.NewReader(os.Stdin)
@@ -34,6 +35,8 @@ type GameSettings struct {
 *
  */
 func main() {
+	rand.Seed( time.Now().UTC().UnixNano())
+
 	settings := &GameSettings{
 		[2]string{"montecarlo", "negamax"},
 		[2]float64{1, 9},
@@ -181,7 +184,7 @@ func gameloop(s *GameSettings) {
 }
 
 func getHumanMove(board *Board, lastmove Move) (move Move) {
-	move = *(new(Move))
+	move = NoMove()
 	var b, c int
 	for {
 		fmt.Printf(colourString("[move]>"))
@@ -203,7 +206,7 @@ func getHumanMove(board *Board, lastmove Move) (move Move) {
 			fmt.Println("There should be some help here...")
 			fmt.Println("Valid moves are of the form \"1 9\" ie. a board number followed by a cell number (1-9)")
 		} else if strings.Contains(input, "quit") || strings.Contains(input, "exit") {
-			os.Exit(0)
+			return move
 		} else if strings.Contains(input, "evalb") {
 			var i int
 			for i = 1; i < 10; i++ {

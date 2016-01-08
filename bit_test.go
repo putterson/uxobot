@@ -42,10 +42,12 @@ func TestGenBitChildren(t *testing.T) {
 		for mc := uint8(0); mc < 9; mc++ {
 			move := BitMove{s: ms, c: mc}
 
-			moves := genBitChildren(board, &lastmove)
+			moveslice := NewBitMoveSlice()
+			slen := 0
+			genBitChildren(board, &lastmove, moveslice, &slen)
 			board.applyMove(&move, X)
 
-			if len(*moves) > 9 - int(mc) {
+			if slen > 9 - int(mc) {
 				t.Fail()
 			}
 		}

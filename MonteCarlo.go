@@ -31,13 +31,16 @@ func (m *MonteCarlo) makeMove(move Move) error {
 	if m.root == nil {
 		return errors.New("root was nil")
 	}
-	node, ok := m.root.childNodes[move.toBitMove()]
+	node, ok := m.root.getChild(move.toBitMove())
 	if ok {
 		//fmt.Println("Found childNode")
 		m.root = node
 		return nil
 	} else {
-		return errors.New("Move was not available")
+		//Technically this is not an error because montecarlo may just not have visited that node
+		//it will continue just fine by setting the root to nil
+		m.root = nil
+		return nil
 	}
 }
 
@@ -57,13 +60,18 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 	
 	count := 0
 
+	var nodePath NodePath
+	nodePath = make(NodePath, 0, 81)
+	nodePath = append(nodePath, m.root)
+
 	for (time.Since(start_t).Seconds() < m.timeout) {
 		count++
 		player := origPlayer
 
-		bitboard, player, move, nodePath := m.selection(origBitBoard, origPlayer)
+		nodePath = nodePath[:1]
+		bitboard, player, move, nodePath := m.selection(nodePath, origBitBoard, origPlayer)
 
-		score := m.simulate(bitboard, player, move)
+		score := m.simulate(bitboard, player, &move)
 
 		//drawBoard(&board, move)
 	
@@ -81,12 +89,12 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 
 	//fmt.Println("Eval final move")
 	//Final move should be the move with the most visits, not the best ratio
-	for move, node := range m.root.childNodes {
+	for _, node := range m.root.childNodes {
 
 		//move.Print()
 		newVisits = node.outcomes
 		if newVisits > visits {
-			optimalMove = move
+			optimalMove = node.move
 			optimalNode = node
 			visits = newVisits
 		}
@@ -102,20 +110,6 @@ func (m *MonteCarlo) getMove(board Board, lastmove Move, player Player) (Move, e
 
 func finished(score int) bool {
 	return score != 0
-}
-
-func bitBoardStatus(board *BitBoard, lastmove *BitMove) int {
-	score := scoreBoard(board)
-
-	if score == 0 {
-		if !areBitChildren(board, lastmove) {
-			return -2
-		} else {
-			return 0
-		}
-	} else {
-		return score
-	}
 }
 
 func boardPartialScore(subscores *BitSubScores, board *BitBoard, lastmove *BitMove) int {
@@ -139,20 +133,20 @@ func montePlayerToMul(origPlayer Player, player Player) int {
 	}
 }
 
-func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player, BitMove, []*TreeNode) {
-	var nodePath []*TreeNode
-	nodePath = make([]*TreeNode, 0, 81)
-	nodePath = append(nodePath, m.root)
+type NodePath []*TreeNode
 
+func (m *MonteCarlo) selection(nodePath NodePath, board BitBoard, player Player) (BitBoard, Player, BitMove, NodePath) {
 	var move BitMove
 	nomove := NoBitMove()
 	move = NoBitMove()
 
+
+	subscores := subScoresBoard(&board)
 	//Selection phase
 	//fmt.Println("Selection phase")
 	//While the node has visited children move to a selected child
 	var lastNode *TreeNode
-	for !finished(bitBoardStatus(&board,&move)) {
+	for !finished(boardPartialScore(subscores, &board,&move)) {
 		lastNode = getLastNode(nodePath);
 		optimalUCB := math.Inf(-1)
 		var optimalNode *TreeNode
@@ -164,7 +158,7 @@ func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player,
 		for i := 0; i < lastNode.nChildMoves; i++ {
 			cmove := lastNode.childMoves[i]
 			ratio := float64(0.0)
-			nextNode, ok := lastNode.childNodes[cmove]
+			nextNode, ok := lastNode.getChild(cmove)
 			nextOutcomes := 1.0
 			if ok {
 				ratio = float64(nextNode.wincomes[player-1]) / float64(nextNode.outcomes)
@@ -196,8 +190,7 @@ func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player,
 		if !optimalOk {
 			//Go to Extension phase
 			//fmt.Println("Extension phase")
-			optimalNode := NewTreeNode(&board, &move)
-			lastNode.childNodes[move] = optimalNode
+			optimalNode := lastNode.addChild(&board, &move)
 			nodePath = append(nodePath, optimalNode)
 			break
 		} else {
@@ -208,7 +201,7 @@ func (m *MonteCarlo) selection(board BitBoard, player Player) (BitBoard, Player,
 	return board, player, move, nodePath
 }
 
-func (m *MonteCarlo) simulate(board BitBoard, player Player, move BitMove) int {
+func (m *MonteCarlo) simulate(board BitBoard, player Player, move *BitMove) int {
 	//Simulation phase
 	//fmt.Println("Simulation phase")
 	//make random moves until the game is over
@@ -218,37 +211,38 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move BitMove) int {
 	simBoard := board
 
 	subscores := subScoresBoard(&simBoard)
-	score := boardPartialScore(subscores, &simBoard, &move)
-	
+	score := boardPartialScore(subscores, &simBoard, move)
+
 	for !finished(score) {
 		slen = 0
-		genBitPartialChildren(subscores, &simBoard, &move, moveslice, &slen)
+		genBitPartialChildren(subscores, &simBoard, move, moveslice, &slen)
 
 
-		if slen == 0 {
-			drawBoard(simBoard.toBoard(), move.toMove())
-		}
+//		if slen == 0 {
+//			drawBoard(simBoard.toBoard(), move.toMove())
+//		}
+
 		//Check for one move away wins
+		oldscores := *subscores
 		for i := 0; i < slen; i++ {
-			p_move := (*moveslice)[i]
-			simBoard.applyMove(&p_move, player)
-			oldscores := *subscores
-			score = boardPartialScore(subscores, &simBoard, &p_move)
+			p_move := &(*moveslice)[i]
+			simBoard.applyMove(p_move, player)
+			score = boardPartialScore(subscores, &simBoard, p_move)
 			if (score & 1) == 1 {
 				//fmt.Printf("Found one move away win score: %d\n", score )
 				//drawBoard(&board, p_move)
 				return score
 			}
-			simBoard.applyMove(&p_move, B)
+			simBoard.applyMove(p_move, B)
 			subscores = &oldscores
 		}
 
 		//otherwise make random move on board
 		rnd_move_index := rand.Intn(slen)
-		move = (*moveslice)[rnd_move_index]
-		simBoard.applyMove(&move, player)
+		move = &(*moveslice)[rnd_move_index]
+		simBoard.applyMove(move, player)
 		
-		score = boardPartialScore(subscores, &simBoard, &move)
+		score = boardPartialScore(subscores, &simBoard, move)
 
 		player = notPlayer(player)
 	}
