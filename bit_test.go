@@ -1,7 +1,6 @@
 package main
 
 import "testing"
-//import "fmt"
 
 func TestIsBlank(t *testing.T) {
 	for mx := 0; mx < 9; mx++ {
@@ -33,28 +32,34 @@ func TestGetMove(t *testing.T) {
 
 }
 
-func TestGenBitChildren(t *testing.T) {
-	lastmove := BitMove{s: 8, c: 0}
-	board := new(BitBoard)
+// func TestGenBitChildren(t *testing.T) {
+// 	lastmove := BitMove{s: 8, c: 0}
+// 	board := new(BitBoard)
 
-	for ms := uint8(0); ms < 9; ms++ {
-		lastmove.c = ms
-		for mc := uint8(0); mc < 9; mc++ {
-			move := BitMove{s: ms, c: mc}
+// 	for ms := uint8(0); ms < 9; ms++ {
+// 		lastmove.c = ms
+// 		for mc := uint8(0); mc < 9; mc++ {
+			
 
-			moveslice := NewBitMoveSlice()
-			slen := 0
-			genBitChildren(board, &lastmove, moveslice, &slen)
-			board.applyMove(&move, X)
+// 			moveslice := NewBitMoveSlice()
+// 			slen := 0
+// 			genBitChildren(board, &lastmove, moveslice, &slen)
 
-			if slen > 9 - int(mc) {
-				t.Fail()
-			}
-		}
-	}
-}
 
-func TestToFromBoard(t *testing.T) {
+// 			if slen > 9 - int(mc) {
+// 				drawBoard(board.toBoard(), NoMove())
+// 				fmt.Printf("Move: %d\n",lastmove)
+// 				fmt.Printf("Children: %d\n", slen)
+// 				t.Fail()
+// 			}
+			
+// 			move := BitMove{s: ms, c: mc}
+// 			board.applyMove(&move, X)
+// 		}
+// 	}
+// }
+
+func TestToFromBitBoard(t *testing.T) {
 	board := new(Board)
 
 	for xy := 0; xy < 9; xy++ {
@@ -62,8 +67,13 @@ func TestToFromBoard(t *testing.T) {
 		board.applyMove(&move, X)
 	}
 
-	drawBoard(board, NoMove())
+	sameboard := board.toBitBoard().toBoard()
 
-	
-	drawBoard(board.toBitBoard().toBoard(), NoMove())
+	for x := 0; x < 9; x++ {
+		for y := 0; y < 9; y++ {
+			if board.getMove(&Move{x,y}) != sameboard.getMove(&Move{x,y}) {
+				t.Fail()
+			}
+		}
+	}
 }
