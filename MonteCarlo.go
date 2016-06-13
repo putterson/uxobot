@@ -209,13 +209,14 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move *BitMove) int 
 	moveslice := NewBitMoveSlice()
 	slen := 0
 	simBoard := board
+	nomove := NoBitMove()
 
-	subscores := subScoresBoard(&simBoard)
-	score := boardPartialScore(subscores, &simBoard, move)
+	subscores := BitSubScores{}
+	score := boardPartialScore(&subscores, &simBoard, &nomove)
 
 	for !finished(score) {
 		slen = 0
-		genBitPartialChildren(subscores, &simBoard, move, moveslice, &slen)
+		genBitPartialChildren(&subscores, &simBoard, move, moveslice, &slen)
 
 
 //		if slen == 0 {
@@ -223,18 +224,18 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move *BitMove) int 
 //		}
 
 		//Check for one move away wins
-		oldscores := *subscores
+		oldscores := subscores
 		for i := 0; i < slen; i++ {
 			p_move := &(*moveslice)[i]
 			simBoard.applyMove(p_move, player)
-			score = boardPartialScore(subscores, &simBoard, p_move)
+			score = boardPartialScore(&subscores, &simBoard, p_move)
 			if (score & 1) == 1 {
 				//fmt.Printf("Found one move away win score: %d\n", score )
 				//drawBoard(&board, p_move)
 				return score
 			}
 			simBoard.applyMove(p_move, B)
-			subscores = &oldscores
+			subscores = oldscores
 		}
 
 		//otherwise make random move on board
@@ -242,7 +243,7 @@ func (m *MonteCarlo) simulate(board BitBoard, player Player, move *BitMove) int 
 		move = &(*moveslice)[rnd_move_index]
 		simBoard.applyMove(move, player)
 		
-		score = boardPartialScore(subscores, &simBoard, move)
+		score = boardPartialScore(&subscores, &simBoard, move)
 
 		player = notPlayer(player)
 	}
