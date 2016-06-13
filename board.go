@@ -28,6 +28,10 @@ func (b *Board) clearMove(move *Move){
 	(*b)[move.x][move.y] = B
 }
 
+func (b *Board) getMove(move *Move) Player {
+	return (*b)[move.x][move.y]
+}
+
 func genHumanChildren(b *Board, lastmove Move) MoveSlice {
 	return genChildren(b, &lastmove)
 }
